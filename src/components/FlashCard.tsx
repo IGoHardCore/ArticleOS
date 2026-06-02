@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Clock } from 'lucide-react';
+import { Clock, MoreHorizontal } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 import { formatDate } from '@/lib/utils';
@@ -68,8 +68,16 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: direction > 0 ? -80 : 80, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-2xl mx-auto"
+      className="relative bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-2xl mx-auto"
     >
+      {/* Three-dot menu */}
+      <button
+        onClick={e => e.stopPropagation()}
+        className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors z-10"
+      >
+        <MoreHorizontal size={15} />
+      </button>
+
       {/* Card body — click anywhere to open drawer */}
       <div
         className="px-6 pt-6 pb-4 cursor-pointer"

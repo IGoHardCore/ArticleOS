@@ -201,7 +201,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) 
                 className="border-t border-slate-100 pt-3"
                 onClick={e => e.stopPropagation()}
               >
-                <RatingBar articleId={article.id} initialRating={article.user_rating} compact />
+                <RatingBar articleId={article.id} initialRating={article.user_rating} />
               </div>
             </motion.div>
           ))}

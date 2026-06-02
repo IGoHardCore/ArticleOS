@@ -125,7 +125,8 @@ export function OnboardingModal() {
                   <ArrowRight size={16} />
                 </button>
                 <p className="text-center text-xs text-slate-400 mt-3">
-                  Already have an account? Sign in
+                  Already have an account?{' '}
+                  <button className="text-slate-600 underline hover:text-slate-900 transition-colors">Sign in</button>
                 </p>
               </div>
             </div>

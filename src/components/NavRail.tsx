@@ -170,7 +170,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
         {/* Cards View */}
         <NavItem
           icon={LayoutGrid}
-          label="Cards"
+          label="Board View"
           active={isCardsView}
           expanded={expanded}
           onClick={() => onViewChange?.('cards')}

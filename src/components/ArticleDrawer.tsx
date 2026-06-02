@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock } from 'lucide-react';
+import { X, Clock, Bookmark, MoreHorizontal } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 import { formatDate } from '@/lib/utils';
@@ -91,13 +91,23 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
               <div className="w-10 h-1 bg-slate-200 rounded-full" />
             </div>
 
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
-            >
-              <X size={15} />
-            </button>
+            {/* Header actions */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X size={15} />
+              </button>
+              <div className="flex items-center gap-1">
+                <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                  <Bookmark size={14} />
+                </button>
+                <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                  <MoreHorizontal size={15} />
+                </button>
+              </div>
+            </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-6 pb-8">
