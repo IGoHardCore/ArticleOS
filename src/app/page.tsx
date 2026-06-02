@@ -175,28 +175,38 @@ export default function HomePage() {
               </div>
             ) : (
               <>
-                <AnimatePresence mode="wait" custom={direction}>
-                  {current && (
-                    <FlashCard
-                      key={current.id}
-                      article={current}
-                      direction={direction}
-                      onExpand={() => setDrawerArticle(current)}
-                    />
-                  )}
-                </AnimatePresence>
-
-                {/* Navigation */}
-                <div className="flex items-center justify-between mt-5">
+                {/* Side arrows layout */}
+                <div className="flex items-center gap-3">
                   <button
                     onClick={goPrev}
                     disabled={index === 0}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-colors disabled:opacity-30 text-sm font-medium"
+                    className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
                   >
-                    <ChevronLeft size={15} /> Prev
+                    <ChevronLeft size={18} />
                   </button>
+                  <div className="flex-1 min-w-0">
+                    <AnimatePresence mode="wait" custom={direction}>
+                      {current && (
+                        <FlashCard
+                          key={current.id}
+                          article={current}
+                          direction={direction}
+                          onExpand={() => setDrawerArticle(current)}
+                        />
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button
+                    onClick={goNext}
+                    disabled={index >= articles.length - 1}
+                    className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
 
-                  {/* Progress dots */}
+                {/* Progress counter + dots */}
+                <div className="mt-4 flex flex-col items-center gap-2">
                   <div className="flex items-center gap-1">
                     {articles.slice(Math.max(0, index - 3), Math.min(articles.length, index + 4)).map((a, i) => {
                       const realIdx = Math.max(0, index - 3) + i;
@@ -209,18 +219,10 @@ export default function HomePage() {
                       );
                     })}
                   </div>
-
-                  <button
-                    onClick={goNext}
-                    disabled={index >= articles.length - 1}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-colors disabled:opacity-30 text-sm font-medium"
-                  >
-                    Next <ChevronRight size={15} />
-                  </button>
+                  <p className="text-xs text-slate-400">
+                    {index + 1} of {articles.length}
+                  </p>
                 </div>
-                <p className="text-center text-xs text-slate-400 mt-3">
-                  {index + 1} / {articles.length} · ← → or J/K to navigate
-                </p>
               </>
             )}
           </div>

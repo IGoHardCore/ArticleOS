@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Clock, Building2, ChevronDown } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 import { formatDate } from '@/lib/utils';
@@ -29,6 +29,25 @@ const TAG_COLORS: Record<string, string> = {
   'public health': 'bg-lime-50 text-lime-700 border-lime-100',
 };
 
+const SOURCE_COLORS: Record<string, string> = {
+  'NEJM': 'text-orange-600',
+  'New England Journal of Medicine': 'text-orange-600',
+  'JAMA': 'text-blue-600',
+  'The Lancet': 'text-green-600',
+  'Lancet': 'text-green-600',
+  'BMJ': 'text-violet-600',
+  'Nature': 'text-teal-600',
+  'Science': 'text-teal-600',
+};
+
+function getSourceColor(source: string | null): string {
+  if (!source) return 'text-slate-500';
+  for (const [key, color] of Object.entries(SOURCE_COLORS)) {
+    if (source.includes(key)) return color;
+  }
+  return 'text-slate-500';
+}
+
 interface FlashCardProps {
   article: Article;
   direction: number;
@@ -37,6 +56,10 @@ interface FlashCardProps {
 }
 
 export function FlashCard({ article, direction, onExpand, onRate }: FlashCardProps) {
+  const summaryParagraphs = article.summary
+    ? article.summary.split('\n\n').filter(Boolean).slice(0, 2)
+    : [];
+
   return (
     <motion.div
       key={article.id}
@@ -47,15 +70,20 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-2xl mx-auto"
     >
-      {/* Card header */}
-      <div className="px-6 pt-6 pb-0">
+      {/* Card body — click anywhere to open drawer */}
+      <div
+        className="px-6 pt-6 pb-4 cursor-pointer"
+        onClick={onExpand}
+      >
+        {/* Meta row */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Building2 size={12} />
-            <span className="font-medium text-slate-500">{article.source || 'Unknown'}</span>
-            <span>·</span>
-            <Clock size={12} />
-            <span>{formatDate(article.published_at)}</span>
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`font-semibold ${getSourceColor(article.source)}`}>
+              {article.source || 'Unknown'}
+            </span>
+            <span className="text-slate-300">·</span>
+            <Clock size={12} className="text-slate-400" />
+            <span className="text-slate-400">{formatDate(article.published_at)}</span>
           </div>
           {article.avg_rating && (
             <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
@@ -81,25 +109,20 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
         {/* Title */}
         <h2 className="text-xl font-bold text-slate-900 leading-snug mb-3">{article.title}</h2>
 
-        {/* Summary preview */}
-        {article.summary && (
-          <p className="text-sm text-slate-500 leading-relaxed line-clamp-3 mb-4">
-            {article.summary.split('\n\n')[0]}
-          </p>
+        {/* Summary — 2 paragraphs, each line-clamp-2 */}
+        {summaryParagraphs.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {summaryParagraphs.map((para, i) => (
+              <p key={i} className="text-sm text-slate-500 leading-relaxed line-clamp-2">
+                {para}
+              </p>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Expand button */}
-      <button
-        onClick={onExpand}
-        className="w-full flex items-center justify-center gap-1.5 py-3 px-6 text-xs text-indigo-500 font-semibold hover:bg-indigo-50 transition-colors border-y border-slate-100"
-      >
-        <ChevronDown size={14} />
-        Read full summary
-      </button>
-
       {/* Rating */}
-      <div className="px-6 py-4">
+      <div className="px-6 py-4 border-t border-slate-100">
         <RatingBar articleId={article.id} initialRating={article.user_rating} onRate={onRate} />
       </div>
     </motion.div>

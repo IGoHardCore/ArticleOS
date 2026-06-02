@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Building2, Newspaper } from 'lucide-react';
+import { Newspaper, SlidersHorizontal, ChevronDown, LayoutList, LayoutGrid } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
-import { formatDate } from '@/lib/utils';
 
 const TAG_COLORS: Record<string, string> = {
   cancer: 'bg-red-50 text-red-600 border-red-100',
@@ -29,6 +28,36 @@ const TAG_COLORS: Record<string, string> = {
   research: 'bg-slate-50 text-slate-600 border-slate-200',
   'public health': 'bg-lime-50 text-lime-700 border-lime-100',
 };
+
+const SOURCE_COLORS: Record<string, string> = {
+  'NEJM': 'text-orange-600',
+  'New England Journal of Medicine': 'text-orange-600',
+  'JAMA': 'text-blue-600',
+  'The Lancet': 'text-green-600',
+  'Lancet': 'text-green-600',
+  'BMJ': 'text-violet-600',
+  'Nature': 'text-teal-600',
+  'Science': 'text-teal-600',
+};
+
+function getSourceColor(source: string | null): string {
+  if (!source) return 'text-slate-500';
+  for (const [key, color] of Object.entries(SOURCE_COLORS)) {
+    if (source.includes(key)) return color;
+  }
+  return 'text-slate-500';
+}
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return `${Math.floor(d / 30)}mo ago`;
+}
 
 interface AllFeedProps {
   onArticleClick: (article: Article) => void;
@@ -69,87 +98,125 @@ export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4 animate-pulse">
-            <div className="h-3 bg-slate-100 rounded w-1/4 mb-3" />
-            <div className="h-5 bg-slate-100 rounded w-3/4 mb-2" />
-            <div className="h-3 bg-slate-100 rounded w-full" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (articles.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <Newspaper size={36} className="mx-auto mb-3 text-slate-300" />
-        <p className="text-slate-500 font-medium">No articles yet</p>
-        <p className="text-slate-400 text-sm mt-1">Use the AI panel to refresh your feed</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3">
-      {articles.map((article, i) => (
-        <motion.div
-          key={article.id}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: Math.min(i * 0.04, 0.3) }}
-          onClick={() => onArticleClick(article)}
-          className="bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:border-indigo-200 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
-            <Building2 size={11} />
-            <span className="font-medium text-slate-500">{article.source || 'Unknown'}</span>
-            <span>·</span>
-            <Clock size={11} />
-            <span>{formatDate(article.published_at)}</span>
+    <div>
+      {/* Top bar */}
+      <div className="mb-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Feed</h1>
+            <p className="text-sm text-slate-400 mt-0.5">Personalized intelligence, updated continuously.</p>
           </div>
+          {/* Filter controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 hover:border-slate-300 transition-colors font-medium">
+              <SlidersHorizontal size={12} />
+              Filters
+            </button>
+            <button className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 hover:border-slate-300 transition-colors font-medium">
+              Latest
+              <ChevronDown size={12} />
+            </button>
+            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
+              <button className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <LayoutList size={14} />
+              </button>
+              <button className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+                <LayoutGrid size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          {article.tags && article.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {article.tags.slice(0, 3).map(tag => (
-                <span
-                  key={tag.id}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                >
-                  {tag.name}
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4 animate-pulse">
+              <div className="h-3 bg-slate-100 rounded w-1/4 mb-3" />
+              <div className="h-5 bg-slate-100 rounded w-3/4 mb-2" />
+              <div className="h-3 bg-slate-100 rounded w-full" />
+            </div>
+          ))}
+        </div>
+      ) : articles.length === 0 ? (
+        <div className="text-center py-16">
+          <Newspaper size={36} className="mx-auto mb-3 text-slate-300" />
+          <p className="text-slate-500 font-medium">No articles yet</p>
+          <p className="text-slate-400 text-sm mt-1">Use the AI panel to refresh your feed</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {articles.map((article, i) => (
+            <motion.div
+              key={article.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i * 0.04, 0.3) }}
+              onClick={() => onArticleClick(article)}
+              className="bg-white border border-slate-200 rounded-2xl px-5 py-4 cursor-pointer hover:shadow-md transition-all group"
+            >
+              {/* Top row: source · time | tags */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`text-xs font-semibold ${getSourceColor(article.source)}`}>
+                  {article.source || 'Unknown'}
                 </span>
-              ))}
+                <span className="text-slate-300 text-xs">·</span>
+                <span className="text-xs text-slate-400">{timeAgo(article.published_at)}</span>
+                {article.tags && article.tags.length > 0 && (
+                  <>
+                    <span className="text-slate-200 text-xs mx-0.5">|</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {article.tags.slice(0, 3).map(tag => (
+                        <span
+                          key={tag.id}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Body: split layout */}
+              <div className="flex gap-4 mb-3">
+                <div className="w-[55%] flex-shrink-0">
+                  <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
+                    {article.title}
+                  </h3>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {article.summary && (
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
+                      {article.summary.split('\n\n')[0]}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom: full-width rating bar */}
+              <div
+                className="border-t border-slate-100 pt-3"
+                onClick={e => e.stopPropagation()}
+              >
+                <RatingBar articleId={article.id} initialRating={article.user_rating} compact />
+              </div>
+            </motion.div>
+          ))}
+
+          {hasMore && (
+            <div className="pt-4 text-center">
+              <button
+                onClick={() => fetchArticles(false)}
+                disabled={loadingMore}
+                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
             </div>
           )}
-
-          <h3 className="text-sm font-semibold text-slate-800 leading-snug mb-2 group-hover:text-indigo-700 transition-colors line-clamp-2">
-            {article.title}
-          </h3>
-
-          {article.summary && (
-            <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 mb-3">
-              {article.summary.split('\n\n')[0]}
-            </p>
-          )}
-
-          <div onClick={e => e.stopPropagation()}>
-            <RatingBar articleId={article.id} initialRating={article.user_rating} compact />
-          </div>
-        </motion.div>
-      ))}
-
-      {hasMore && (
-        <div className="pt-2 text-center">
-          <button
-            onClick={() => fetchArticles(false)}
-            disabled={loadingMore}
-            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {loadingMore ? 'Loading…' : 'Load more'}
-          </button>
         </div>
       )}
     </div>

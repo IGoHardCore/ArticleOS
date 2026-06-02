@@ -2,14 +2,45 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { X, Circle, ThumbsUp, Star, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const RATINGS = [
-  { value: 1, label: 'Skip', color: 'text-slate-400 hover:bg-slate-100', activeColor: 'bg-slate-100 text-slate-600 border-slate-300' },
-  { value: 2, label: 'Okay', color: 'text-blue-400 hover:bg-blue-50', activeColor: 'bg-blue-50 text-blue-600 border-blue-200' },
-  { value: 3, label: 'Good', color: 'text-emerald-500 hover:bg-emerald-50', activeColor: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-  { value: 4, label: 'Great', color: 'text-indigo-500 hover:bg-indigo-50', activeColor: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
-  { value: 5, label: 'Must Read', color: 'text-amber-500 hover:bg-amber-50', activeColor: 'bg-amber-50 text-amber-600 border-amber-200' },
+  {
+    value: 1,
+    label: 'Skip',
+    icon: X,
+    inactiveClass: 'text-slate-500 border-slate-200 bg-white hover:bg-slate-50',
+    activeClass: 'bg-slate-100 border-slate-300 text-slate-600',
+  },
+  {
+    value: 2,
+    label: 'Okay',
+    icon: Circle,
+    inactiveClass: 'text-amber-500 border-slate-200 bg-white hover:bg-amber-50',
+    activeClass: 'bg-amber-50 border-amber-200 text-amber-600',
+  },
+  {
+    value: 3,
+    label: 'Good',
+    icon: ThumbsUp,
+    inactiveClass: 'text-blue-500 border-slate-200 bg-white hover:bg-blue-50',
+    activeClass: 'bg-blue-50 border-blue-200 text-blue-600',
+  },
+  {
+    value: 4,
+    label: 'Great',
+    icon: Star,
+    inactiveClass: 'text-teal-500 border-slate-200 bg-white hover:bg-teal-50',
+    activeClass: 'bg-teal-50 border-teal-200 text-teal-600',
+  },
+  {
+    value: 5,
+    label: 'Must Read',
+    icon: Bookmark,
+    inactiveClass: 'text-red-500 border-slate-200 bg-white hover:bg-red-50',
+    activeClass: 'bg-red-50 border-red-200 text-red-600',
+  },
 ];
 
 interface RatingBarProps {
@@ -40,25 +71,26 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
   }
 
   if (compact) {
-    const current = RATINGS.find(r => r.value === rating);
+    // Icon-only pills in compact mode
     return (
       <div className="flex items-center gap-1.5 flex-wrap">
-        {RATINGS.map(r => (
-          <motion.button
-            key={r.value}
-            whileTap={{ scale: 0.88 }}
-            onClick={e => { e.stopPropagation(); handleRate(r.value); }}
-            className={cn(
-              'px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all duration-150',
-              rating === r.value
-                ? r.activeColor + ' border'
-                : 'border-transparent ' + r.color
-            )}
-          >
-            {r.label}
-          </motion.button>
-        ))}
-        {current && <span className="text-[10px] text-slate-400 ml-0.5">saved</span>}
+        {RATINGS.map(r => {
+          const Icon = r.icon;
+          return (
+            <motion.button
+              key={r.value}
+              whileTap={{ scale: 0.88 }}
+              onClick={e => { e.stopPropagation(); handleRate(r.value); }}
+              title={r.label}
+              className={cn(
+                'w-7 h-7 rounded-full flex items-center justify-center border transition-all duration-150',
+                rating === r.value ? r.activeClass : r.inactiveClass
+              )}
+            >
+              <Icon size={12} />
+            </motion.button>
+          );
+        })}
       </div>
     );
   }
@@ -67,22 +99,24 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
     <div className="flex items-center gap-2">
       <span className="text-xs text-slate-400 font-medium mr-1">Rate:</span>
       <div className="flex items-center gap-1.5 flex-wrap">
-        {RATINGS.map(r => (
-          <motion.button
-            key={r.value}
-            whileTap={{ scale: 0.88 }}
-            whileHover={{ scale: 1.04 }}
-            onClick={e => { e.stopPropagation(); handleRate(r.value); }}
-            className={cn(
-              'px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150',
-              rating === r.value
-                ? r.activeColor + ' border shadow-sm'
-                : 'border-slate-200 text-slate-500 hover:border-slate-300 ' + r.color
-            )}
-          >
-            {r.label}
-          </motion.button>
-        ))}
+        {RATINGS.map(r => {
+          const Icon = r.icon;
+          return (
+            <motion.button
+              key={r.value}
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.04 }}
+              onClick={e => { e.stopPropagation(); handleRate(r.value); }}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150',
+                rating === r.value ? r.activeClass + ' shadow-sm' : r.inactiveClass
+              )}
+            >
+              <Icon size={12} />
+              {r.label}
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );

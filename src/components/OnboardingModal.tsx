@@ -2,32 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, BarChart2, Brain, ArrowRight } from 'lucide-react';
+import { Info, Clock, Zap, MessageSquare, ArrowRight } from 'lucide-react';
 
 const FACTS = [
-  'The average physician spends 28 hours/month keeping up with medical literature.',
-  'Over 1 million medical research papers are published every year.',
-  'Only 14% of new medical evidence reaches clinical practice within 17 years.',
+  {
+    icon: Info,
+    text: 'Stay ahead of the curve. Over 30,000+ new medical articles published every day.',
+  },
+  {
+    icon: Clock,
+    text: 'Time is limited. Clinicians spend 19+ hours per week keeping up with medical literature.',
+  },
+  {
+    icon: Zap,
+    text: 'Signal is hard to find. Less than 20% of research is practice-changing, yet everything competes for your attention.',
+  },
+  {
+    icon: MessageSquare,
+    text: 'AI summaries help you understand faster and remember more.',
+  },
 ];
 
 const FEATURES = [
   {
-    icon: Layers,
+    icon: '⚡',
     title: 'Flash Feed',
-    desc: 'One article at a time — focus on what matters, rate it, and move on.',
-    color: 'bg-indigo-50 text-indigo-600',
+    desc: 'One article at a time. Rapidly scan high-impact research in a clean, focused experience.',
   },
   {
-    icon: BarChart2,
+    icon: '☆',
     title: 'Rate & Learn',
-    desc: 'Your ratings train a personal algorithm that surfaces your top picks each week.',
-    color: 'bg-emerald-50 text-emerald-600',
+    desc: 'Rate articles to train your AI and prioritize what deserves your time.',
   },
   {
-    icon: Brain,
+    icon: '✦',
     title: 'AI Guidance',
-    desc: 'Get a 2-paragraph AI summary for every article plus personalized research direction.',
-    color: 'bg-purple-50 text-purple-600',
+    desc: 'AI summaries and insights help you understand faster and remember more.',
   },
 ];
 
@@ -65,20 +75,25 @@ export function OnboardingModal() {
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row">
-              {/* Left panel */}
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 flex flex-col justify-between md:w-56 flex-shrink-0">
-                <div>
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center mb-5">
-                    <span className="text-white font-bold text-xl">Rx</span>
+              {/* Left panel — dark navy */}
+              <div className="bg-[#0B1437] p-8 flex flex-col md:w-64 flex-shrink-0">
+                {/* Logo */}
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B1437] border-2 border-white ring-1 ring-white/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">Rx</span>
                   </div>
-                  <h1 className="text-white font-bold text-2xl leading-tight mb-2">Article<br />OS</h1>
-                  <p className="text-indigo-200 text-sm leading-relaxed">Your personal medical intelligence OS</p>
+                  <span className="text-white text-lg">✦</span>
                 </div>
-                <div className="mt-8 space-y-3">
-                  {FACTS.map((fact, i) => (
-                    <div key={i} className="flex gap-2">
-                      <div className="w-1 h-1 rounded-full bg-indigo-300 mt-1.5 flex-shrink-0" />
-                      <p className="text-indigo-200 text-xs leading-relaxed">{fact}</p>
+
+                <p className="text-white font-semibold text-base leading-snug mb-8">
+                  Your personal medical intelligence OS
+                </p>
+
+                <div className="space-y-4 flex-1">
+                  {FACTS.map(({ icon: Icon, text }, i) => (
+                    <div key={i} className="flex gap-3 items-start">
+                      <Icon size={14} className="text-slate-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-slate-400 text-xs leading-relaxed">{text}</p>
                     </div>
                   ))}
                 </div>
@@ -86,15 +101,14 @@ export function OnboardingModal() {
 
               {/* Right panel */}
               <div className="flex-1 p-8 flex flex-col">
-                <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back, Doctor</h2>
-                <p className="text-sm text-slate-500 mb-6 leading-relaxed">Stay ahead of the curve. Here&apos;s what ArticleOS does for you:</p>
+                <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                  ArticleOS helps you cut through the noise and focus on what matters.
+                </p>
 
-                <div className="space-y-3 flex-1">
-                  {FEATURES.map(({ icon: Icon, title, desc, color }) => (
+                <div className="space-y-4 flex-1">
+                  {FEATURES.map(({ icon, title, desc }) => (
                     <div key={title} className="flex gap-3 items-start">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-                        <Icon size={16} />
-                      </div>
+                      <span className="text-lg leading-none mt-0.5 flex-shrink-0">{icon}</span>
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{title}</p>
                         <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
@@ -105,11 +119,14 @@ export function OnboardingModal() {
 
                 <button
                   onClick={dismiss}
-                  className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-semibold text-sm transition-colors"
+                  className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-[#0B1437] hover:bg-[#0d1a4a] text-white rounded-2xl font-semibold text-sm transition-colors"
                 >
                   Start Reading
                   <ArrowRight size={16} />
                 </button>
+                <p className="text-center text-xs text-slate-400 mt-3">
+                  Already have an account? Sign in
+                </p>
               </div>
             </div>
           </motion.div>

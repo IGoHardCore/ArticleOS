@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Newspaper, FlaskConical, BarChart2, Settings, LayoutList, Layers, ChevronRight, ChevronLeft } from 'lucide-react';
+import {
+  Home, FileText, BarChart2, Settings, LayoutList, LayoutGrid,
+  ChevronRight, ChevronLeft, Sparkles
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavRailProps {
@@ -12,21 +15,15 @@ interface NavRailProps {
   view?: 'cards' | 'feed';
 }
 
-const NAV_LINKS = [
-  { href: '/', icon: Layers, label: 'Cards', matchExact: true },
-  { href: '/?view=feed', icon: Newspaper, label: 'Feed', matchExact: false },
-  { href: '/research', icon: FlaskConical, label: 'Research', matchExact: true },
-  { href: '/stats', icon: BarChart2, label: 'Insights', matchExact: true },
-  { href: '/settings', icon: Settings, label: 'Settings', matchExact: true },
-];
-
 function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
   href?: string; icon: React.ElementType; label: string; active: boolean;
   expanded: boolean; onClick?: () => void;
 }) {
   const cls = cn(
     'flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all duration-150 w-full text-left',
-    active ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+    active
+      ? 'bg-blue-600 text-white'
+      : 'text-slate-400 hover:bg-white/[0.08] hover:text-white'
   );
 
   const content = (
@@ -39,7 +36,7 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -6 }}
             transition={{ duration: 0.12 }}
-            className={cn('text-sm font-medium whitespace-nowrap overflow-hidden', active ? 'text-indigo-600' : '')}
+            className="text-sm font-medium whitespace-nowrap overflow-hidden"
           >
             {label}
           </motion.span>
@@ -58,7 +55,6 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
 
-  // Persist expanded state across route changes
   useEffect(() => {
     const saved = localStorage.getItem('navrail_expanded');
     if (saved === 'true') setExpanded(true);
@@ -76,111 +72,148 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
   const isFeedView = isHome && view === 'feed';
   const isCardsView = isHome && view !== 'feed';
 
-  return (
-    <>
-      {/* Mobile backdrop */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/10 z-20 md:hidden"
-            onClick={toggleExpanded}
-          />
-        )}
-      </AnimatePresence>
+  function handleAIGuidance() {
+    window.dispatchEvent(new CustomEvent('articleos-open-ai'));
+  }
 
-      <motion.nav
-        animate={{ width: expanded ? 200 : 64 }}
-        transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-        className="fixed left-0 top-0 h-screen bg-white border-r border-slate-100 flex flex-col py-4 z-30 shadow-sm overflow-hidden"
-      >
-        {/* Logo */}
-        <div className="flex items-center px-3.5 mb-5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-200 flex-shrink-0">
-            <span className="text-white font-bold text-sm">Rx</span>
-          </div>
+  return (
+    <motion.nav
+      animate={{ width: expanded ? 200 : 64 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 32 }}
+      className="fixed left-0 top-0 h-screen bg-[#0B1437] flex flex-col py-4 z-30 overflow-hidden"
+    >
+      {/* Logo */}
+      <div className="flex items-center px-3.5 mb-6 flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-[#0B1437] border-2 border-white ring-1 ring-white/30 flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-bold text-sm">Rx</span>
+        </div>
+        <AnimatePresence>
+          {expanded && (
+            <motion.span
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.14 }}
+              className="ml-3 text-sm font-bold text-white whitespace-nowrap"
+            >
+              ArticleOS
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Main nav */}
+      <div className="flex flex-col gap-0.5 px-2 flex-1">
+        {/* Feed */}
+        <NavItem
+          icon={Home}
+          label="Feed"
+          active={isFeedView}
+          expanded={expanded}
+          onClick={() => onViewChange?.('feed')}
+        />
+
+        {/* Research */}
+        <NavItem
+          href="/research"
+          icon={FileText}
+          label="Research"
+          active={pathname === '/research'}
+          expanded={expanded}
+        />
+
+        {/* Insights */}
+        <NavItem
+          href="/stats"
+          icon={BarChart2}
+          label="Insights"
+          active={pathname === '/stats'}
+          expanded={expanded}
+        />
+
+        {/* Settings */}
+        <NavItem
+          href="/settings"
+          icon={Settings}
+          label="Settings"
+          active={pathname === '/settings'}
+          expanded={expanded}
+        />
+
+        {/* Divider + VIEWS label */}
+        <div className="my-2">
+          <div className="border-t border-white/10" />
           <AnimatePresence>
             {expanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -8 }}
-                transition={{ duration: 0.14 }}
-                className="ml-3 text-sm font-bold text-slate-800 whitespace-nowrap"
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="px-2.5 pt-2 pb-1"
               >
-                ArticleOS
-              </motion.span>
+                <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Views</span>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Main nav */}
-        <div className="flex flex-col gap-0.5 px-2 flex-1">
-          {/* Cards view link */}
-          <NavItem
-            icon={Layers}
-            label="Cards"
-            active={isCardsView}
-            expanded={expanded}
-            onClick={() => onViewChange?.('cards')}
-          />
-          {/* Feed view link */}
-          <NavItem
-            icon={Newspaper}
-            label="Feed"
-            active={isFeedView}
-            expanded={expanded}
-            onClick={() => onViewChange?.('feed')}
-          />
+        {/* Feed View */}
+        <NavItem
+          icon={LayoutList}
+          label="Feed View"
+          active={isFeedView}
+          expanded={expanded}
+          onClick={() => onViewChange?.('feed')}
+        />
 
-          <div className="my-1.5 border-t border-slate-100" />
+        {/* Cards View */}
+        <NavItem
+          icon={LayoutGrid}
+          label="Cards"
+          active={isCardsView}
+          expanded={expanded}
+          onClick={() => onViewChange?.('cards')}
+        />
 
-          {/* Research / Stats / Settings */}
-          {[
-            { href: '/research', icon: FlaskConical, label: 'Research' },
-            { href: '/stats', icon: BarChart2, label: 'Insights' },
-            { href: '/settings', icon: Settings, label: 'Settings' },
-          ].map(({ href, icon, label }) => (
-            <NavItem
-              key={href}
-              href={href}
-              icon={icon}
-              label={label}
-              active={pathname === href}
-              expanded={expanded}
-            />
-          ))}
-        </div>
+        {/* Divider */}
+        <div className="my-2 border-t border-white/10" />
 
-        {/* Collapse toggle */}
-        <div className="px-2">
-          <button
-            onClick={toggleExpanded}
-            className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-slate-300 hover:bg-slate-50 hover:text-slate-600 transition-all w-full text-left"
-          >
-            {expanded
-              ? <ChevronLeft size={16} className="flex-shrink-0" />
-              : <ChevronRight size={16} className="flex-shrink-0" />
-            }
-            <AnimatePresence>
-              {expanded && (
-                <motion.span
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -6 }}
-                  transition={{ duration: 0.12 }}
-                  className="text-xs text-slate-400 whitespace-nowrap"
-                >
-                  Collapse
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
-      </motion.nav>
-    </>
+        {/* AI Guidance */}
+        <NavItem
+          icon={Sparkles}
+          label="AI Guidance"
+          active={false}
+          expanded={expanded}
+          onClick={handleAIGuidance}
+        />
+      </div>
+
+      {/* Collapse toggle */}
+      <div className="px-2 flex-shrink-0">
+        <button
+          onClick={toggleExpanded}
+          className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-slate-500 hover:bg-white/[0.08] hover:text-slate-300 transition-all w-full text-left"
+        >
+          {expanded
+            ? <ChevronLeft size={16} className="flex-shrink-0" />
+            : <ChevronRight size={16} className="flex-shrink-0" />
+          }
+          <AnimatePresence>
+            {expanded && (
+              <motion.span
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.12 }}
+                className="text-xs text-slate-400 whitespace-nowrap"
+              >
+                Collapse
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
+    </motion.nav>
   );
 }

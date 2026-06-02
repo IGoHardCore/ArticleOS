@@ -33,6 +33,12 @@ export function AIAssistant() {
     if (open) setTimeout(() => inputRef.current?.focus(), 300);
   }, [open]);
 
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener('articleos-open-ai', handler);
+    return () => window.removeEventListener('articleos-open-ai', handler);
+  }, []);
+
   async function send(text?: string) {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;

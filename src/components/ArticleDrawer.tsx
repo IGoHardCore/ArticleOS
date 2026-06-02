@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Clock, Building2 } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 import { formatDate } from '@/lib/utils';
@@ -34,6 +34,25 @@ const TAG_COLORS: Record<string, string> = {
   research: 'bg-slate-50 text-slate-600 border-slate-200',
   'public health': 'bg-lime-50 text-lime-700 border-lime-100',
 };
+
+const SOURCE_COLORS: Record<string, string> = {
+  'NEJM': 'text-orange-600',
+  'New England Journal of Medicine': 'text-orange-600',
+  'JAMA': 'text-blue-600',
+  'The Lancet': 'text-green-600',
+  'Lancet': 'text-green-600',
+  'BMJ': 'text-violet-600',
+  'Nature': 'text-teal-600',
+  'Science': 'text-teal-600',
+};
+
+function getSourceColor(source: string | null): string {
+  if (!source) return 'text-slate-500';
+  for (const [key, color] of Object.entries(SOURCE_COLORS)) {
+    if (source.includes(key)) return color;
+  }
+  return 'text-slate-500';
+}
 
 export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
   useEffect(() => {
@@ -83,12 +102,13 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-6 pb-8">
               {/* Meta */}
-              <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-                <Building2 size={12} />
-                <span className="font-medium text-slate-500">{article.source || 'Unknown'}</span>
-                <span>·</span>
-                <Clock size={12} />
-                <span>{formatDate(article.published_at)}</span>
+              <div className="flex items-center gap-2 text-xs mb-3">
+                <span className={`font-semibold ${getSourceColor(article.source)}`}>
+                  {article.source || 'Unknown'}
+                </span>
+                <span className="text-slate-300">·</span>
+                <Clock size={12} className="text-slate-400" />
+                <span className="text-slate-400">{formatDate(article.published_at)}</span>
               </div>
 
               {/* Tags */}
@@ -110,10 +130,10 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
 
               {/* AI Summary */}
               {article.summary && (
-                <div className="bg-indigo-50 rounded-2xl p-4 mb-5 border border-indigo-100">
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-5">
                   <div className="flex items-center gap-1.5 mb-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">AI Summary</span>
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">AI Summary</span>
                   </div>
                   <div className="space-y-3">
                     {article.summary.split('\n\n').filter(Boolean).map((para, i) => (
