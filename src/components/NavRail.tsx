@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +12,8 @@ import { cn } from '@/lib/utils';
 interface NavRailProps {
   onViewChange?: (view: 'cards' | 'feed') => void;
   view?: 'cards' | 'feed';
+  expanded?: boolean;
+  onToggle?: () => void;
 }
 
 function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
@@ -20,15 +21,15 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
   expanded: boolean; onClick?: () => void;
 }) {
   const cls = cn(
-    'flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all duration-150 w-full text-left',
+    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 w-full text-left',
     active
       ? 'bg-blue-600 text-white'
-      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
   );
 
   const content = (
     <>
-      <Icon size={18} strokeWidth={active ? 2.2 : 1.8} className="flex-shrink-0" />
+      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className="flex-shrink-0" />
       <AnimatePresence>
         {expanded && (
           <motion.span
@@ -51,23 +52,9 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
   return <button onClick={onClick} className={cls}>{content}</button>;
 }
 
-export function NavRail({ onViewChange, view }: NavRailProps) {
+export function NavRail({ onViewChange, view, expanded = true, onToggle }: NavRailProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('navrail_expanded');
-    if (saved === 'true') setExpanded(true);
-  }, []);
-
-  function toggleExpanded() {
-    setExpanded(e => {
-      const next = !e;
-      localStorage.setItem('navrail_expanded', String(next));
-      return next;
-    });
-  }
 
   const isHome = pathname === '/';
   const isFeedView = isHome && view === 'feed';
@@ -86,16 +73,19 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
     window.dispatchEvent(new CustomEvent('articleos-open-ai'));
   }
 
+  const railWidth = expanded ? 200 : 56;
+
   return (
     <motion.nav
-      animate={{ width: expanded ? 200 : 64 }}
+      animate={{ width: railWidth }}
       transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-      className="fixed left-0 top-0 h-screen bg-white border-r border-slate-100 flex flex-col py-4 z-30 overflow-hidden"
+      className="fixed left-0 top-0 h-screen bg-white border-r border-slate-100 flex flex-col py-4 z-30 overflow-visible"
+      style={{ minWidth: 0 }}
     >
       {/* Logo */}
-      <div className="flex items-center px-3.5 mb-6 flex-shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">Rx</span>
+      <div className="flex items-center px-3 mb-5 flex-shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-bold text-xs">Rx</span>
         </div>
         <AnimatePresence>
           {expanded && (
@@ -104,7 +94,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.14 }}
-              className="ml-3 text-sm font-bold text-slate-800 whitespace-nowrap"
+              className="ml-2.5 text-sm font-bold text-slate-800 whitespace-nowrap"
             >
               ArticleOS
             </motion.span>
@@ -113,42 +103,11 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
       </div>
 
       {/* Main nav */}
-      <div className="flex flex-col gap-0.5 px-2 flex-1">
-        {/* Feed */}
-        <NavItem
-          icon={Home}
-          label="Feed"
-          active={isFeedView}
-          expanded={expanded}
-          onClick={() => handleViewNav('feed')}
-        />
-
-        {/* Research */}
-        <NavItem
-          href="/research"
-          icon={FileText}
-          label="Research"
-          active={pathname === '/research'}
-          expanded={expanded}
-        />
-
-        {/* Insights */}
-        <NavItem
-          href="/stats"
-          icon={BarChart2}
-          label="Insights"
-          active={pathname === '/stats'}
-          expanded={expanded}
-        />
-
-        {/* Settings */}
-        <NavItem
-          href="/settings"
-          icon={Settings}
-          label="Settings"
-          active={pathname === '/settings'}
-          expanded={expanded}
-        />
+      <div className="flex flex-col gap-0.5 px-2 flex-1 overflow-hidden">
+        <NavItem icon={Home} label="Feed" active={isFeedView} expanded={expanded} onClick={() => handleViewNav('feed')} />
+        <NavItem href="/research" icon={FileText} label="Research" active={pathname === '/research'} expanded={expanded} />
+        <NavItem href="/stats" icon={BarChart2} label="Insights" active={pathname === '/stats'} expanded={expanded} />
+        <NavItem href="/settings" icon={Settings} label="Settings" active={pathname === '/settings'} expanded={expanded} />
 
         {/* Divider + VIEWS label */}
         <div className="my-2">
@@ -160,7 +119,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
-                className="px-2.5 pt-2 pb-1"
+                className="px-3 pt-2 pb-1"
               >
                 <span className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">Views</span>
               </motion.div>
@@ -168,62 +127,22 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
           </AnimatePresence>
         </div>
 
-        {/* Feed View */}
-        <NavItem
-          icon={LayoutList}
-          label="Feed View"
-          active={isFeedView}
-          expanded={expanded}
-          onClick={() => handleViewNav('feed')}
-        />
+        <NavItem icon={LayoutList} label="Feed View" active={isFeedView} expanded={expanded} onClick={() => handleViewNav('feed')} />
+        <NavItem icon={LayoutGrid} label="Board View" active={isCardsView} expanded={expanded} onClick={() => handleViewNav('cards')} />
 
-        {/* Cards View */}
-        <NavItem
-          icon={LayoutGrid}
-          label="Board View"
-          active={isCardsView}
-          expanded={expanded}
-          onClick={() => handleViewNav('cards')}
-        />
-
-        {/* Divider */}
         <div className="my-2 border-t border-slate-100" />
 
-        {/* AI Guidance */}
-        <NavItem
-          icon={Sparkles}
-          label="AI Guidance"
-          active={false}
-          expanded={expanded}
-          onClick={handleAIGuidance}
-        />
+        <NavItem icon={Sparkles} label="AI Guidance" active={false} expanded={expanded} onClick={handleAIGuidance} />
       </div>
 
-      {/* Collapse toggle */}
-      <div className="px-2 flex-shrink-0">
-        <button
-          onClick={toggleExpanded}
-          className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all w-full text-left"
-        >
-          {expanded
-            ? <ChevronLeft size={16} className="flex-shrink-0" />
-            : <ChevronRight size={16} className="flex-shrink-0" />
-          }
-          <AnimatePresence>
-            {expanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.12 }}
-                className="text-xs text-slate-500 whitespace-nowrap"
-              >
-                Collapse
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
-      </div>
+      {/* Blue circle toggle — sits on the right edge of the sidebar */}
+      <button
+        onClick={onToggle}
+        className="absolute top-1/2 -translate-y-1/2 -right-3.5 w-7 h-7 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-md flex items-center justify-center transition-colors z-40"
+        title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+      >
+        {expanded ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
+      </button>
     </motion.nav>
   );
 }
