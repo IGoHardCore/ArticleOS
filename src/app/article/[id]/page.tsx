@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Clock, Building2, BookOpen } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { NavRail } from '@/components/NavRail';
+import { AIAssistant } from '@/components/AIAssistant';
 import { RatingBar } from '@/components/RatingBar';
 import { formatDate } from '@/lib/utils';
 
@@ -124,6 +125,7 @@ export default function ArticlePage() {
           )}
         </div>
       </main>
+      <AIAssistant />
     </div>
   );
 }

@@ -4,8 +4,14 @@ import { getDb } from '@/lib/db';
 export async function GET() {
   const db = getDb();
   const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-  const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  if (settings.api_key) settings.api_key = '••••••••' + settings.api_key.slice(-4);
+  const settings: Record<string, string> = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  // Return masked key + provider type separately so UI doesn't need to detect from masked string
+  if (settings.api_key) {
+    const rawKey = settings.api_key;
+    settings.api_key_provider = rawKey.startsWith('AIza') ? 'google' : 'other';
+    settings.api_key_hint = '••••' + rawKey.slice(-4);
+    delete settings.api_key;
+  }
   return NextResponse.json(settings);
 }
 

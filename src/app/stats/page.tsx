@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Tag, Newspaper } from 'lucide-react';
 import { NavRail } from '@/components/NavRail';
+import { AIAssistant } from '@/components/AIAssistant';
 
 interface Stats {
   totalArticles: number;
@@ -106,6 +107,7 @@ export default function StatsPage() {
           )}
         </div>
       </main>
+      <AIAssistant />
     </div>
   );
 }

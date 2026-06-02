@@ -1,37 +1,40 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getDb } from './db';
 
-type Provider = 'anthropic' | 'google';
-
-function getApiKey(): { key: string; provider: Provider } {
+function getGoogleKey(): string {
   const db = getDb();
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('api_key') as { value: string } | undefined;
-  const key = row?.value || process.env.ANTHROPIC_API_KEY || process.env.GOOGLE_API_KEY || '';
-  if (!key) throw new Error('No API key configured. Add your API key in Settings.');
-  // Google AI Studio keys start with AIza
-  const provider: Provider = key.startsWith('AIza') ? 'google' : 'anthropic';
-  return { key, provider };
+  const key = row?.value || process.env.GOOGLE_API_KEY || '';
+  if (!key) throw new Error('No Google AI Studio API key configured. Add your key in Settings.');
+  return key;
 }
 
 async function generateText(prompt: string): Promise<string> {
-  const { key, provider } = getApiKey();
+  const key = getGoogleKey();
+  const genAI = new GoogleGenerativeAI(key);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
 
-  if (provider === 'google') {
-    const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  }
-
-  // Anthropic
-  const client = new Anthropic({ apiKey: key });
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 800,
-    messages: [{ role: 'user', content: prompt }],
+export async function generateChat(
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
+): Promise<string> {
+  const key = getGoogleKey();
+  const genAI = new GoogleGenerativeAI(key);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    systemInstruction: 'You are a medical AI assistant for a pharmacist/clinician. Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice. Be concise, accurate, and clinically relevant. Use plain language.',
   });
-  return message.content[0].type === 'text' ? message.content[0].text : '';
+  const chat = model.startChat({
+    history: history.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+  });
+  const result = await chat.sendMessage(message);
+  return result.response.text();
 }
 
 const TAG_LIST = [

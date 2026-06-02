@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import {
   Plus, Trash2, Brain, ChevronDown, ChevronUp,
-  CheckCircle2, Circle, PauseCircle, Loader2, Sparkles
+  CheckCircle2, Circle, PauseCircle,
 } from 'lucide-react';
 import { NavRail } from '@/components/NavRail';
+import { AIAssistant } from '@/components/AIAssistant';
 import { cn } from '@/lib/utils';
 
 interface Note {
@@ -44,8 +45,6 @@ export default function ResearchPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [guidance, setGuidance] = useState('');
-  const [guidanceLoading, setGuidanceLoading] = useState(false);
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
@@ -97,23 +96,6 @@ export default function ResearchPage() {
     if (res.ok) fetchNotes();
   }
 
-  async function getGuidance() {
-    setGuidanceLoading(true);
-    try {
-      const res = await fetch('/api/research', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'guidance' }),
-      });
-      const data = await res.json();
-      setGuidance(data.guidance || '');
-    } catch {
-      setGuidance('Failed to get guidance. Make sure your API key is configured in Settings.');
-    } finally {
-      setGuidanceLoading(false);
-    }
-  }
-
   const active = notes.filter(n => n.status === 'active');
   const paused = notes.filter(n => n.status === 'paused');
   const done = notes.filter(n => n.status === 'done');
@@ -129,33 +111,13 @@ export default function ResearchPage() {
               <h1 className="text-2xl font-bold text-slate-900">Research Directory</h1>
               <p className="text-sm text-slate-500 mt-0.5">Track your research goals and get AI guidance</p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={getGuidance}
-                disabled={guidanceLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                {guidanceLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                AI Guidance
-              </button>
-              <button
-                onClick={() => setCreating(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
-              >
-                <Plus size={14} /> New Note
-              </button>
-            </div>
+            <button
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              <Plus size={14} /> New Note
+            </button>
           </div>
-
-          {guidance && (
-            <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Brain size={16} className="text-purple-500" />
-                <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">AI Research Guidance</span>
-              </div>
-              <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{guidance}</p>
-            </div>
-          )}
 
           {creating && (
             <div className="bg-white border border-indigo-200 rounded-2xl p-5 mb-6 shadow-sm">
@@ -277,6 +239,7 @@ export default function ResearchPage() {
           )}
         </div>
       </main>
+      <AIAssistant />
     </div>
   );
 }
