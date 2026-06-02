@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, TrendingUp, Clock, Search, X, RefreshCw } from 'lucide-react';
 import { Article } from '@/lib/db';
-import { NavRail } from '@/components/NavRail';
+import { AppShell } from '@/components/AppShell';
 import { FlashCard } from '@/components/FlashCard';
 import { ArticleDrawer } from '@/components/ArticleDrawer';
-import { AIAssistant } from '@/components/AIAssistant';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { AllFeed } from '@/components/AllFeed';
 import { TopPick } from '@/components/TopPick';
@@ -24,11 +23,19 @@ export default function HomePage() {
   const [mode, setMode] = useState<FeedMode>('recommended');
   const [view, setView] = useState<View>('cards');
   const [drawerArticle, setDrawerArticle] = useState<Article | null>(null);
+
+  // Consume view saved by NavRail when navigating from another page
+  useEffect(() => {
+    const saved = localStorage.getItem('articleos_view');
+    if (saved === 'feed' || saved === 'cards') {
+      setView(saved);
+      localStorage.removeItem('articleos_view');
+    }
+  }, []);
   const [topPickPeriod, setTopPickPeriod] = useState<'week' | 'month'>('week');
   const [query, setQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
@@ -79,10 +86,8 @@ export default function HomePage() {
   const current = articles[index];
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <NavRail view={view} onViewChange={setView} />
-
-      <main className="flex-1 ml-16 overflow-y-auto min-w-0">
+    <AppShell view={view} onViewChange={setView}>
+      <>
 
         {/* ─── Top bar ─── */}
         <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 px-5 py-3 flex items-center gap-3 pr-16">
@@ -265,16 +270,9 @@ export default function HomePage() {
             <AllFeed onArticleClick={setDrawerArticle} mode={mode} />
           </div>
         )}
-      </main>
-
-      {/* AI panel — inline, pushes main content left */}
-      <AIAssistant open={aiOpen} onOpenChange={setAiOpen} />
-
-      {/* Shared article drawer */}
       <ArticleDrawer article={drawerArticle} onClose={() => setDrawerArticle(null)} />
-
-      {/* Onboarding */}
       <OnboardingModal />
-    </div>
+      </>
+    </AppShell>
   );
 }

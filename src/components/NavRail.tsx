@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, FileText, BarChart2, Settings, LayoutList, LayoutGrid,
@@ -53,6 +53,7 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
 
 export function NavRail({ onViewChange, view }: NavRailProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -71,6 +72,15 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
   const isHome = pathname === '/';
   const isFeedView = isHome && view === 'feed';
   const isCardsView = isHome && view !== 'feed';
+
+  function handleViewNav(v: 'cards' | 'feed') {
+    if (onViewChange) {
+      onViewChange(v);
+    } else {
+      localStorage.setItem('articleos_view', v);
+      router.push('/');
+    }
+  }
 
   function handleAIGuidance() {
     window.dispatchEvent(new CustomEvent('articleos-open-ai'));
@@ -110,7 +120,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
           label="Feed"
           active={isFeedView}
           expanded={expanded}
-          onClick={() => onViewChange?.('feed')}
+          onClick={() => handleViewNav('feed')}
         />
 
         {/* Research */}
@@ -164,7 +174,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
           label="Feed View"
           active={isFeedView}
           expanded={expanded}
-          onClick={() => onViewChange?.('feed')}
+          onClick={() => handleViewNav('feed')}
         />
 
         {/* Cards View */}
@@ -173,7 +183,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
           label="Board View"
           active={isCardsView}
           expanded={expanded}
-          onClick={() => onViewChange?.('cards')}
+          onClick={() => handleViewNav('cards')}
         />
 
         {/* Divider */}

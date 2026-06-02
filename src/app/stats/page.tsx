@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Tag, Newspaper } from 'lucide-react';
-import { NavRail } from '@/components/NavRail';
-import { AIAssistant } from '@/components/AIAssistant';
+import { AppShell } from '@/components/AppShell';
 
 interface Stats {
   totalArticles: number;
@@ -23,9 +22,7 @@ export default function StatsPage() {
   const maxCount = stats?.topTags.reduce((m, t) => Math.max(m, t.count), 1) || 1;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <NavRail />
-      <main className="flex-1 ml-16 overflow-y-auto">
+    <AppShell>
         <div className="max-w-2xl mx-auto px-6 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Insights</h1>
@@ -106,9 +103,7 @@ export default function StatsPage() {
             <p className="text-slate-400">Failed to load stats.</p>
           )}
         </div>
-      </main>
-      <AIAssistant />
-    </div>
+    </AppShell>
   );
 }
 

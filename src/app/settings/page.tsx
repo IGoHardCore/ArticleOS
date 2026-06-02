@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Eye, EyeOff, Save, Check, Key, Info, CheckCircle2, AlertCircle } from 'lucide-react';
-import { NavRail } from '@/components/NavRail';
-import { AIAssistant } from '@/components/AIAssistant';
+import { AppShell } from '@/components/AppShell';
 
 export default function SettingsPage() {
   const [newKey, setNewKey] = useState('');
@@ -52,9 +51,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <NavRail />
-      <main className="flex-1 ml-16 overflow-y-auto">
+    <AppShell>
         <div className="max-w-xl mx-auto px-6 py-6 pr-20">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
@@ -138,8 +135,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </main>
-      <AIAssistant />
-    </div>
+    </AppShell>
   );
 }

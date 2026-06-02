@@ -5,8 +5,7 @@ import {
   Plus, Trash2, Brain, ChevronDown, ChevronUp,
   CheckCircle2, Circle, PauseCircle,
 } from 'lucide-react';
-import { NavRail } from '@/components/NavRail';
-import { AIAssistant } from '@/components/AIAssistant';
+import { AppShell } from '@/components/AppShell';
 import { cn } from '@/lib/utils';
 
 interface Note {
@@ -101,9 +100,7 @@ export default function ResearchPage() {
   const done = notes.filter(n => n.status === 'done');
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <NavRail />
-      <main className="flex-1 ml-16 overflow-y-auto">
+    <AppShell>
         <div className="max-w-4xl mx-auto px-6 py-6">
 
           <div className="flex items-center justify-between mb-6">
@@ -238,9 +235,7 @@ export default function ResearchPage() {
             </div>
           )}
         </div>
-      </main>
-      <AIAssistant />
-    </div>
+    </AppShell>
   );
 }
 
