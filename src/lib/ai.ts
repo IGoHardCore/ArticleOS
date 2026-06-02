@@ -12,7 +12,7 @@ function getGoogleKey(): string {
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
@@ -24,7 +24,7 @@ export async function generateChat(
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-1.5-flash-latest',
     systemInstruction: 'You are a medical AI assistant for a pharmacist/clinician. Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice. Be concise, accurate, and clinically relevant. Use plain language.',
   });
   const chat = model.startChat({

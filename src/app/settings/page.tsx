@@ -127,7 +127,7 @@ export default function SettingsPage() {
             <div className="flex items-start gap-3">
               <Info size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-slate-500 space-y-1.5 leading-relaxed">
-                <p><span className="text-slate-700 font-medium">AI provider:</span> ArticleOS uses Google Gemini 2.0 Flash for article summaries, tags, research guidance, and the AI chat assistant.</p>
+                <p><span className="text-slate-700 font-medium">AI provider:</span> ArticleOS uses Google Gemini 1.5 Flash for article summaries, tags, research guidance, and the AI chat assistant.</p>
                 <p><span className="text-slate-700 font-medium">Recommendations:</span> Rate articles (Skip → Must Read). The algorithm tracks which topics you rate highest and surfaces more of that content.</p>
                 <p><span className="text-slate-700 font-medium">Top Pick:</span> Updated weekly and monthly based on your highest-rated articles in that period.</p>
                 <p><span className="text-slate-700 font-medium">Free tier:</span> Google AI Studio offers a generous free tier. No credit card required for personal use.</p>
