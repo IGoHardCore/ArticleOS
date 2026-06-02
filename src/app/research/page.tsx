@@ -20,31 +20,38 @@ interface Note {
   updated_at: string;
 }
 
-const STATUS_ICONS = { active: Circle, done: CheckCircle2, paused: PauseCircle };
-const STATUS_COLORS = { active: 'text-indigo-400', done: 'text-emerald-400', paused: 'text-slate-500' };
+const STATUS_ICONS = {
+  active: Circle,
+  done: CheckCircle2,
+  paused: PauseCircle,
+};
+
+const STATUS_COLORS = {
+  active: 'text-indigo-400',
+  done: 'text-emerald-400',
+  paused: 'text-slate-500',
+};
+
 const PRIORITY_COLORS = {
   high: 'bg-red-500/10 text-red-400 border-red-500/20',
   medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   low: 'bg-slate-800 text-slate-500 border-slate-700',
 };
 
-const ALL_TAGS = [
-  'cancer', 'cardiology', 'neurology', 'pharmacology', 'drug approval',
-  'oncology', 'diabetes', 'immunology', 'genetics', 'clinical trial',
-  'surgery', 'psychiatry', 'pediatrics', 'infectious disease', 'pharmacy',
-  'breakthrough', 'FDA', 'research', 'public health',
-];
-
 export default function ResearchPage() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [guidance, setGuidance] = useState('');
   const [guidanceLoading, setGuidanceLoading] = useState(false);
   const [newNote, setNewNote] = useState({
-    title: '', content: '', status: 'active' as Note['status'],
-    priority: 'medium' as Note['priority'], tags: [] as string[],
+    title: '',
+    content: '',
+    status: 'active' as Note['status'],
+    priority: 'medium' as Note['priority'],
+    tags: [] as string[],
   });
 
   async function fetchNotes() {
@@ -54,36 +61,40 @@ export default function ResearchPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchNotes(); }, []);
+  useEffect(() => {
+    fetchNotes();
+    fetch('/api/tags').then(r => r.json()).then(d => setAllTags((d.tags || []).map((t: { name: string }) => t.name)));
+  }, []);
 
   async function createNote() {
     if (!newNote.title.trim()) return;
-    await fetch('/api/research', {
+    const res = await fetch('/api/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newNote),
     });
+    if (!res.ok) return;
     setNewNote({ title: '', content: '', status: 'active', priority: 'medium', tags: [] });
     setCreating(false);
     fetchNotes();
   }
 
   async function updateNote(note: Note) {
-    await fetch('/api/research', {
+    const res = await fetch('/api/research', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(note),
     });
-    fetchNotes();
+    if (res.ok) fetchNotes();
   }
 
   async function deleteNote(id: number) {
-    await fetch('/api/research', {
+    const res = await fetch('/api/research', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    fetchNotes();
+    if (res.ok) fetchNotes();
   }
 
   async function getGuidance() {
@@ -112,6 +123,7 @@ export default function ResearchPage() {
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-6 py-6">
+
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-slate-100">Research Directory</h1>
@@ -180,7 +192,7 @@ export default function ResearchPage() {
               <div className="mb-4">
                 <label className="text-xs text-slate-500 mb-2 block">Tags</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {ALL_TAGS.map(tag => (
+                  {allTags.map(tag => (
                     <button
                       key={tag}
                       onClick={() => setNewNote(p => ({
@@ -218,7 +230,11 @@ export default function ResearchPage() {
                     <Circle size={12} className="text-indigo-400" /> Active ({active.length})
                   </h2>
                   <div className="space-y-2">
-                    {active.map(note => <NoteCard key={note.id} note={note} expanded={expanded === note.id} onToggle={() => setExpanded(expanded === note.id ? null : note.id)} onUpdate={updateNote} onDelete={deleteNote} />)}
+                    {active.map(note => (
+                      <NoteCard key={note.id} note={note} expanded={expanded === note.id}
+                        onToggle={() => setExpanded(expanded === note.id ? null : note.id)}
+                        onUpdate={updateNote} onDelete={deleteNote} />
+                    ))}
                   </div>
                 </section>
               )}
@@ -228,7 +244,11 @@ export default function ResearchPage() {
                     <PauseCircle size={12} className="text-slate-500" /> Paused ({paused.length})
                   </h2>
                   <div className="space-y-2">
-                    {paused.map(note => <NoteCard key={note.id} note={note} expanded={expanded === note.id} onToggle={() => setExpanded(expanded === note.id ? null : note.id)} onUpdate={updateNote} onDelete={deleteNote} />)}
+                    {paused.map(note => (
+                      <NoteCard key={note.id} note={note} expanded={expanded === note.id}
+                        onToggle={() => setExpanded(expanded === note.id ? null : note.id)}
+                        onUpdate={updateNote} onDelete={deleteNote} />
+                    ))}
                   </div>
                 </section>
               )}
@@ -238,7 +258,11 @@ export default function ResearchPage() {
                     <CheckCircle2 size={12} className="text-emerald-400" /> Completed ({done.length})
                   </h2>
                   <div className="space-y-2">
-                    {done.map(note => <NoteCard key={note.id} note={note} expanded={expanded === note.id} onToggle={() => setExpanded(expanded === note.id ? null : note.id)} onUpdate={updateNote} onDelete={deleteNote} />)}
+                    {done.map(note => (
+                      <NoteCard key={note.id} note={note} expanded={expanded === note.id}
+                        onToggle={() => setExpanded(expanded === note.id ? null : note.id)}
+                        onUpdate={updateNote} onDelete={deleteNote} />
+                    ))}
                   </div>
                 </section>
               )}
@@ -268,9 +292,7 @@ function NoteCard({ note, expanded, onToggle, onUpdate, onDelete }: {
   return (
     <div className={cn('bg-slate-900 border rounded-xl transition-colors', note.status === 'done' ? 'border-slate-800/50 opacity-60' : 'border-slate-800')}>
       <div className="flex items-center gap-3 px-4 py-3">
-        <StatusIcon
-          size={16}
-          className={cn('flex-shrink-0 cursor-pointer', STATUS_COLORS[note.status])}
+        <StatusIcon size={16} className={cn('flex-shrink-0 cursor-pointer', STATUS_COLORS[note.status])}
           onClick={() => {
             const next = note.status === 'active' ? 'done' : note.status === 'done' ? 'paused' : 'active';
             onUpdate({ ...note, status: next });
@@ -295,15 +317,16 @@ function NoteCard({ note, expanded, onToggle, onUpdate, onDelete }: {
         <div className="px-4 pb-4 border-t border-slate-800 pt-3">
           {editing ? (
             <div className="space-y-3">
-              <input value={draft.title} onChange={e => setDraft(p => ({ ...p, title: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50" />
-              <textarea value={draft.content} onChange={e => setDraft(p => ({ ...p, content: e.target.value }))} rows={5} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none" />
-              <div className="flex gap-2">
-                <select value={draft.priority} onChange={e => setDraft(p => ({ ...p, priority: e.target.value as Note['priority'] }))} className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
+              <input value={draft.title} onChange={e => setDraft(p => ({ ...p, title: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+              <textarea value={draft.content} onChange={e => setDraft(p => ({ ...p, content: e.target.value }))}
+                rows={5} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none" />
+              <select value={draft.priority} onChange={e => setDraft(p => ({ ...p, priority: e.target.value as Note['priority'] }))}
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
               <div className="flex gap-2">
                 <button onClick={() => { onUpdate(draft); setEditing(false); }} className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-medium transition-colors">Save</button>
                 <button onClick={() => { setDraft(note); setEditing(false); }} className="px-3 py-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors">Cancel</button>
