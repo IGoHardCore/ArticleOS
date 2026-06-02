@@ -23,7 +23,7 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
     'flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all duration-150 w-full text-left',
     active
       ? 'bg-blue-600 text-white'
-      : 'text-slate-400 hover:bg-white/[0.08] hover:text-white'
+      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
   );
 
   const content = (
@@ -80,11 +80,11 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
     <motion.nav
       animate={{ width: expanded ? 200 : 64 }}
       transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-      className="fixed left-0 top-0 h-screen bg-[#0B1437] flex flex-col py-4 z-30 overflow-hidden"
+      className="fixed left-0 top-0 h-screen bg-white border-r border-slate-100 flex flex-col py-4 z-30 overflow-hidden"
     >
       {/* Logo */}
       <div className="flex items-center px-3.5 mb-6 flex-shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-[#0B1437] border-2 border-white ring-1 ring-white/30 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
           <span className="text-white font-bold text-sm">Rx</span>
         </div>
         <AnimatePresence>
@@ -94,7 +94,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.14 }}
-              className="ml-3 text-sm font-bold text-white whitespace-nowrap"
+              className="ml-3 text-sm font-bold text-slate-800 whitespace-nowrap"
             >
               ArticleOS
             </motion.span>
@@ -142,7 +142,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
 
         {/* Divider + VIEWS label */}
         <div className="my-2">
-          <div className="border-t border-white/10" />
+          <div className="border-t border-slate-100" />
           <AnimatePresence>
             {expanded && (
               <motion.div
@@ -152,7 +152,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
                 transition={{ duration: 0.12 }}
                 className="px-2.5 pt-2 pb-1"
               >
-                <span className="text-slate-500 text-[10px] uppercase tracking-wider font-semibold">Views</span>
+                <span className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">Views</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -177,7 +177,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
         />
 
         {/* Divider */}
-        <div className="my-2 border-t border-white/10" />
+        <div className="my-2 border-t border-slate-100" />
 
         {/* AI Guidance */}
         <NavItem
@@ -193,7 +193,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
       <div className="px-2 flex-shrink-0">
         <button
           onClick={toggleExpanded}
-          className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-slate-500 hover:bg-white/[0.08] hover:text-slate-300 transition-all w-full text-left"
+          className="flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all w-full text-left"
         >
           {expanded
             ? <ChevronLeft size={16} className="flex-shrink-0" />
@@ -206,7 +206,7 @@ export function NavRail({ onViewChange, view }: NavRailProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -6 }}
                 transition={{ duration: 0.12 }}
-                className="text-xs text-slate-400 whitespace-nowrap"
+                className="text-xs text-slate-500 whitespace-nowrap"
               >
                 Collapse
               </motion.span>
