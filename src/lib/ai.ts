@@ -23,15 +23,15 @@ export interface AIResult {
 
 export async function analyzeArticle(title: string, text: string): Promise<AIResult> {
   const client = getClient();
-  const content = text?.slice(0, 3000) || '';
+  const content = text?.slice(0, 4000) || '';
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 512,
+    max_tokens: 800,
     messages: [
       {
         role: 'user',
-        content: `You are a medical/pharmacy news analyst. Analyze this article and respond with valid JSON only.\n\nArticle Title: ${title}\nArticle Content: ${content}\n\nAvailable tags: ${TAG_LIST.join(', ')}\n\nRespond with this exact JSON structure (no markdown, no extra text):\n{\n  "summary": "2-3 sentence plain English summary a non-expert can understand. Focus on what changed or was discovered and why it matters.",\n  "tags": ["tag1", "tag2"]\n}\n\nRules:\n- summary: Keep it clear, concise, and jargon-free\n- tags: Pick 1-4 most relevant tags from the available list only`,
+        content: `You are a medical/pharmacy news analyst. Analyze this article and respond with valid JSON only.\n\nArticle Title: ${title}\nArticle Content: ${content}\n\nAvailable tags: ${TAG_LIST.join(', ')}\n\nRespond with this exact JSON structure (no markdown, no extra text):\n{\n  "summary": "Write 2-3 paragraphs in plain English that a pharmacy professional can quickly absorb. Paragraph 1: What was discovered or changed and the key findings. Paragraph 2: Clinical or practical implications — how this affects patient care, prescribing, or pharmacy practice. Paragraph 3 (optional): Context, limitations, or what comes next. Use \\n\\n to separate paragraphs.",\n  "tags": ["tag1", "tag2"]\n}\n\nRules:\n- summary: Minimum 2 paragraphs separated by \\n\\n. Be specific with numbers/percentages when available.\n- tags: Pick 1-4 most relevant tags from the available list only`,
       },
     ],
   });
