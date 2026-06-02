@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Circle, ThumbsUp, Star, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,6 +53,7 @@ interface RatingBarProps {
 export function RatingBar({ articleId, initialRating, onRate, compact }: RatingBarProps) {
   const [rating, setRating] = useState<number | null>(initialRating ?? null);
   const [saving, setSaving] = useState(false);
+  const [justRated, setJustRated] = useState(false);
 
   async function handleRate(value: number) {
     if (saving) return;
@@ -64,6 +65,8 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
         body: JSON.stringify({ rating: value }),
       });
       setRating(value);
+      setJustRated(true);
+      setTimeout(() => setJustRated(false), 2000);
       onRate?.(value);
     } finally {
       setSaving(false);
@@ -96,7 +99,7 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-slate-400 font-medium mr-1">Rate:</span>
       <div className="flex items-center gap-1.5 flex-wrap">
         {RATINGS.map(r => {
@@ -118,6 +121,18 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
           );
         })}
       </div>
+      <AnimatePresence>
+        {justRated && (
+          <motion.span
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-[10px] text-indigo-400 font-medium"
+          >
+            Learning your preferences…
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

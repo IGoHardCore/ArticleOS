@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, TrendingUp, Clock, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, Clock, Search, X, RefreshCw } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { NavRail } from '@/components/NavRail';
 import { FlashCard } from '@/components/FlashCard';
@@ -27,6 +27,8 @@ export default function HomePage() {
   const [topPickPeriod, setTopPickPeriod] = useState<'week' | 'month'>('week');
   const [query, setQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
@@ -44,6 +46,16 @@ export default function HomePage() {
   }, [mode, query]);
 
   useEffect(() => { fetchArticles(); }, [fetchArticles]);
+
+  async function refreshFeed() {
+    setRefreshing(true);
+    try {
+      await fetch('/api/scrape', { method: 'POST' });
+      await fetchArticles();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   // Keyboard nav for cards view
   useEffect(() => {
@@ -70,10 +82,10 @@ export default function HomePage() {
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <NavRail view={view} onViewChange={setView} />
 
-      <main className="flex-1 ml-16 overflow-y-auto">
+      <main className="flex-1 ml-16 overflow-y-auto min-w-0">
 
         {/* ─── Top bar ─── */}
-        <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 px-5 py-3 flex items-center gap-3 pr-24">
+        <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 px-5 py-3 flex items-center gap-3 pr-16">
           {/* Mode toggle */}
           <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
             <button
@@ -132,6 +144,17 @@ export default function HomePage() {
               )}
             </AnimatePresence>
           </div>
+
+          {/* Refresh Feed button */}
+          <button
+            onClick={refreshFeed}
+            disabled={refreshing}
+            title="Refresh Feed — fetches new articles from medical journals"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors disabled:opacity-50 flex-shrink-0"
+          >
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Fetching…' : 'Refresh'}
+          </button>
         </div>
 
         {/* ─── Cards View ─── */}
@@ -170,8 +193,16 @@ export default function HomePage() {
               </div>
             ) : articles.length === 0 ? (
               <div className="bg-white rounded-3xl border border-slate-100 p-10 text-center">
-                <p className="text-slate-500 font-medium">No articles found</p>
-                <p className="text-slate-400 text-sm mt-1">Try refreshing the feed or adjusting your search</p>
+                <p className="text-slate-500 font-medium">No articles yet</p>
+                <p className="text-slate-400 text-sm mt-1 mb-4">Fetch the latest medical research from journals and news sources</p>
+                <button
+                  onClick={refreshFeed}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                  {refreshing ? 'Fetching articles…' : 'Fetch Articles'}
+                </button>
               </div>
             ) : (
               <>
@@ -236,11 +267,11 @@ export default function HomePage() {
         )}
       </main>
 
+      {/* AI panel — inline, pushes main content left */}
+      <AIAssistant open={aiOpen} onOpenChange={setAiOpen} />
+
       {/* Shared article drawer */}
       <ArticleDrawer article={drawerArticle} onClose={() => setDrawerArticle(null)} />
-
-      {/* AI Assistant (fixed top-right) */}
-      <AIAssistant />
 
       {/* Onboarding */}
       <OnboardingModal />
