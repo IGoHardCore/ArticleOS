@@ -88,8 +88,6 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
       setMessages(prev => prev.slice(0, -1)); // remove empty assistant bubble
       if (errMsg.includes('No Google AI Studio API key')) {
         setError('No API key configured. Go to Settings to add your key.');
-      } else if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-        setError('Rate limit hit. Wait a minute and try again.');
       } else {
         setError(errMsg);
       }

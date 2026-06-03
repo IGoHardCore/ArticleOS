@@ -255,7 +255,7 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                         <div className="h-3 bg-blue-100 rounded animate-pulse w-3/4" />
                       </div>
                     ) : summaryError ? (
-                      <p className="text-sm text-slate-500 leading-relaxed">{summaryError.includes('API key') ? 'No API key configured — go to Settings.' : 'Could not generate summary. Try opening this article again.'}</p>
+                      <p className="text-sm text-slate-500 leading-relaxed">{summaryError.includes('API key') ? 'No API key configured — go to Settings.' : summaryError}</p>
                     ) : (
                       <p className="text-sm text-slate-400">No summary available.</p>
                     )}
