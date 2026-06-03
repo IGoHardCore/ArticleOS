@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Clock, Bookmark, MoreHorizontal } from 'lucide-react';
 import { Article } from '@/lib/db';
@@ -61,26 +61,36 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
   const [bookmarked, setBookmarked] = useState(false);
   const [liveSummary, setLiveSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Track which article ID we've already kicked off a fetch for — prevents re-firing on state changes
+  const fetchedForId = useRef<number | null>(null);
 
   useEffect(() => {
     setBookmarked(!!article?.bookmarked);
     setLiveSummary(null);
+    setSummaryError(null);
   }, [article]);
 
   useEffect(() => {
     setActiveTab('summary');
   }, [article]);
 
-  // Auto-generate summary if article is opened without one
+  // Auto-generate summary exactly once per article when it has no summary
   useEffect(() => {
-    if (!article || article.summary || liveSummary || summaryLoading) return;
+    if (!article || article.summary) return;
+    if (fetchedForId.current === article.id) return; // already fetched for this article
+    fetchedForId.current = article.id;
     setSummaryLoading(true);
+    setSummaryError(null);
     fetch(`/api/articles/${article.id}/summarize`, { method: 'POST' })
-      .then(r => r.json())
-      .then(d => { if (d.summary) setLiveSummary(d.summary); })
-      .catch(() => {})
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed to generate summary');
+        if (d.summary) setLiveSummary(d.summary);
+      })
+      .catch(err => setSummaryError(err instanceof Error ? err.message : 'Failed'))
       .finally(() => setSummaryLoading(false));
-  }, [article, liveSummary, summaryLoading]);
+  }, [article]);
 
   useEffect(() => {
     if (!article) return;
@@ -243,6 +253,14 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                         <div className="h-3 bg-blue-100 rounded animate-pulse w-4/5 mb-2" />
                         <div className="h-3 bg-blue-100 rounded animate-pulse w-full" />
                         <div className="h-3 bg-blue-100 rounded animate-pulse w-3/4" />
+                      </div>
+                    ) : summaryError ? (
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <p className="text-amber-600 font-medium">Could not generate summary</p>
+                        <p className="leading-relaxed">{summaryError.includes('429') || summaryError.includes('quota')
+                          ? 'AI rate limit reached. Try again in a minute, or read the full article below.'
+                          : summaryError.includes('API key') ? 'No API key configured — go to Settings.'
+                          : summaryError}</p>
                       </div>
                     ) : (
                       <p className="text-sm text-slate-400">No summary available.</p>
