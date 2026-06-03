@@ -12,7 +12,8 @@ function getGoogleKey(): string {
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  // v1 endpoint — v1beta 404s with this key; v1 works and doesn't need systemInstruction
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
@@ -24,21 +25,26 @@ export async function generateChat(
 ): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const systemInstruction = [
+  // v1 endpoint — systemInstruction is a v1beta-only field, so we inject it as the
+  // first turn of the conversation history instead (standard workaround for v1).
+  const systemText = [
     'You are a medical AI assistant for a pharmacist/clinician.',
     'Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice.',
     'Be concise, accurate, and clinically relevant. Use plain language.',
-    articleContext ? `\n\nThe user has recently read and engaged with these articles:\n${articleContext}\n\nReference these when relevant to their questions.` : '',
-  ].join(' ');
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    systemInstruction,
-  });
+    articleContext ? `The user has recently engaged with these articles:\n${articleContext}` : '',
+  ].filter(Boolean).join(' ');
+
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }, { apiVersion: 'v1' });
   const chat = model.startChat({
-    history: history.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    })),
+    history: [
+      // Inject system role as first turn — works on v1 without systemInstruction field
+      { role: 'user', parts: [{ text: systemText }] },
+      { role: 'model', parts: [{ text: 'Understood. I\'m ready to assist with medical and pharmacy questions.' }] },
+      ...history.map(m => ({
+        role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+        parts: [{ text: m.content }],
+      })),
+    ],
   });
   const result = await chat.sendMessage(message);
   return result.response.text();

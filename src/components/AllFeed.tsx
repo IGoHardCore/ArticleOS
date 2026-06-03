@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Newspaper, SlidersHorizontal, ChevronDown, LayoutList, LayoutGrid, RefreshCw } from 'lucide-react';
 import { Article } from '@/lib/db';
@@ -101,6 +101,16 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
     fetchArticles(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortMode]);
+
+  // Re-fetch after parent finishes scraping new articles
+  const prevFetching = useRef(false);
+  useEffect(() => {
+    if (prevFetching.current && !fetching) {
+      fetchArticles(true);
+    }
+    prevFetching.current = !!fetching;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetching]);
 
   return (
     <div>
