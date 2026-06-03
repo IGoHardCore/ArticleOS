@@ -56,23 +56,56 @@ export interface AIResult {
   tags: string[];
 }
 
+function ensureTwoParagraphs(text: string): string {
+  if (!text) return text;
+  // Normalize any \r\n or single \n between sentences into \n\n
+  const normalized = text.replace(/\r\n/g, '\n');
+  const paragraphs = normalized.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+  if (paragraphs.length >= 2) return paragraphs.join('\n\n');
+
+  // Only one paragraph — split at a sentence boundary near the midpoint
+  const sentences = normalized.split(/(?<=[.!?])\s+/);
+  if (sentences.length < 2) return normalized;
+  const mid = Math.ceil(sentences.length / 2);
+  const p1 = sentences.slice(0, mid).join(' ').trim();
+  const p2 = sentences.slice(mid).join(' ').trim();
+  return p2 ? `${p1}\n\n${p2}` : p1;
+}
+
 export async function analyzeArticle(title: string, text: string): Promise<AIResult> {
   const content = text?.slice(0, 4000) || '';
-  const prompt = `You are a medical/pharmacy news analyst. Analyze this article and respond with valid JSON only.\n\nArticle Title: ${title}\nArticle Content: ${content}\n\nAvailable tags: ${TAG_LIST.join(', ')}\n\nRespond with this exact JSON structure (no markdown, no extra text):\n{\n  "summary": "Write 2-3 paragraphs in plain English that a pharmacy professional can quickly absorb. Paragraph 1: What was discovered or changed and the key findings. Paragraph 2: Clinical or practical implications — how this affects patient care, prescribing, or pharmacy practice. Paragraph 3 (optional): Context, limitations, or what comes next. Use \\n\\n to separate paragraphs.",\n  "tags": ["tag1", "tag2"]\n}\n\nRules:\n- summary: Minimum 2 paragraphs separated by \\n\\n. Be specific with numbers/percentages when available.\n- tags: Pick 1-4 most relevant tags from the available list only`;
+  const prompt = `You are a medical/pharmacy news analyst. Analyze this article and respond with valid JSON only.
+
+Article Title: ${title}
+Article Content: ${content}
+
+Available tags: ${TAG_LIST.join(', ')}
+
+Respond with ONLY this JSON (no markdown fences, no extra text):
+{
+  "summary": "<PARAGRAPH 1: Key findings — what was discovered, the study design, the numbers.>\\n\\n<PARAGRAPH 2: Clinical/practical implications — how this changes prescribing, patient care, or pharmacy practice.>",
+  "tags": ["tag1", "tag2"]
+}
+
+Rules:
+- summary MUST contain exactly the two-paragraph structure above, separated by the literal characters \\n\\n
+- Each paragraph must be 2-4 sentences minimum
+- Be specific: include percentages, drug names, patient populations when available
+- tags: pick 1-4 from the available list only`;
 
   const raw = await generateText(prompt);
 
-  // Strip markdown code fences if present (Gemini sometimes wraps in ```json)
   const cleaned = raw.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
 
   try {
     const parsed = JSON.parse(cleaned);
+    const summary = ensureTwoParagraphs(parsed.summary || '');
     return {
-      summary: parsed.summary || '',
+      summary,
       tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t: string) => TAG_LIST.includes(t)) : [],
     };
   } catch {
-    return { summary: raw.slice(0, 800), tags: [] };
+    return { summary: ensureTwoParagraphs(raw.slice(0, 1200)), tags: [] };
   }
 }
 

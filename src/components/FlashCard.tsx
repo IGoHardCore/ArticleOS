@@ -121,7 +121,7 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
         {summaryParagraphs.length > 0 && (
           <div className="space-y-2 mb-4">
             {summaryParagraphs.map((para, i) => (
-              <p key={i} className="text-sm text-slate-500 leading-relaxed line-clamp-2">
+              <p key={i} className="text-sm text-slate-500 leading-relaxed line-clamp-3">
                 {para}
               </p>
             ))}

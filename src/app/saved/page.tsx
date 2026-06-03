@@ -59,7 +59,7 @@ export default function SavedPage() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto px-6 py-6">
+      <div className="max-w-6xl mx-auto px-6 py-6">
         <div className="mb-6 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
             <Bookmark size={16} className="text-amber-600" fill="currentColor" />

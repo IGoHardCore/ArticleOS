@@ -23,7 +23,7 @@ export default function StatsPage() {
 
   return (
     <AppShell>
-        <div className="max-w-2xl mx-auto px-6 py-6">
+        <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Insights</h1>
             <p className="text-sm text-slate-400 mt-0.5">Your reading habits and preferences</p>

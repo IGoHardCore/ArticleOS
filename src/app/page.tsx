@@ -161,7 +161,7 @@ export default function HomePage() {
 
         {/* ─── Cards View ─── */}
         {view === 'cards' && (
-          <div className="max-w-2xl mx-auto px-6 py-6">
+          <div className="max-w-3xl mx-auto px-6 py-6">
             {/* Top Pick */}
             {!query && mode === 'recommended' && (
               <div className="mb-6">
@@ -263,7 +263,7 @@ export default function HomePage() {
 
         {/* ─── Feed View ─── */}
         {view === 'feed' && (
-          <div className="max-w-4xl mx-auto px-6 py-6">
+          <div className="max-w-6xl mx-auto px-6 py-6">
             <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
           </div>
         )}
