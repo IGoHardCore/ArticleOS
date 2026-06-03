@@ -255,13 +255,7 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                         <div className="h-3 bg-blue-100 rounded animate-pulse w-3/4" />
                       </div>
                     ) : summaryError ? (
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <p className="text-amber-600 font-medium">Could not generate summary</p>
-                        <p className="leading-relaxed">{summaryError.includes('429') || summaryError.includes('quota')
-                          ? 'AI rate limit reached. Try again in a minute, or read the full article below.'
-                          : summaryError.includes('API key') ? 'No API key configured — go to Settings.'
-                          : summaryError}</p>
-                      </div>
+                      <p className="text-sm text-slate-500 leading-relaxed">{summaryError.includes('API key') ? 'No API key configured — go to Settings.' : 'Could not generate summary. Try opening this article again.'}</p>
                     ) : (
                       <p className="text-sm text-slate-400">No summary available.</p>
                     )}

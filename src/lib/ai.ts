@@ -138,6 +138,23 @@ Rules:
   }
 }
 
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
+      if (isRateLimit && i < retries - 1) {
+        await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 export async function processUnanalyzedArticles(limit = 10): Promise<number> {
   const db = getDb();
   const articles = db
@@ -152,13 +169,15 @@ export async function processUnanalyzedArticles(limit = 10): Promise<number> {
 
   for (const article of articles) {
     try {
-      const result = await analyzeArticle(article.title, article.full_text || article.title);
+      const result = await withRetry(() => analyzeArticle(article.title, article.full_text || article.title));
       if (result.summary) updateSummary.run(result.summary, article.id);
       for (const tagName of result.tags) {
         const tag = getTags.get(tagName) as { id: number } | undefined;
         if (tag) insertTag.run(article.id, tag.id);
       }
       processed++;
+      // Pace requests to stay under the 15 RPM free tier limit
+      if (processed < articles.length) await new Promise(r => setTimeout(r, 4500));
     } catch (err) {
       console.error(`Failed to analyze article ${article.id}:`, err);
     }

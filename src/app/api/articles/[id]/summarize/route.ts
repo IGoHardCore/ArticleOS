@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { analyzeArticle } from '@/lib/ai';
 
+async function analyzeWithRetry(title: string, text: string, attempts = 4) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await analyzeArticle(title, text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
+      if (isRateLimit && i < attempts - 1) {
+        // Wait and retry: 5s, 10s, 20s
+        await new Promise(r => setTimeout(r, 5000 * (i + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,11 +36,10 @@ export async function POST(
   if (article.summary) return NextResponse.json({ summary: article.summary });
 
   try {
-    const result = await analyzeArticle(article.title, article.full_text || article.title);
+    const result = await analyzeWithRetry(article.title, article.full_text || article.title);
     if (result.summary) {
       db.prepare('UPDATE articles SET summary = ? WHERE id = ?').run(result.summary, numId);
     }
-    // Insert any new tags
     for (const tagName of result.tags) {
       const tag = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName) as { id: number } | undefined;
       if (tag) db.prepare('INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)').run(numId, tag.id);
