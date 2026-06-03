@@ -7,7 +7,7 @@ export async function POST() {
     const scrapeResult = await scrapeFeeds();
     let analyzed = 0;
     try {
-      analyzed = await processUnanalyzedArticles(15);
+      analyzed = await processUnanalyzedArticles(30);
     } catch (err) {
       console.error('AI analysis failed:', err);
     }

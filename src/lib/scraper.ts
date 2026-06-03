@@ -56,18 +56,22 @@ export async function scrapeFeeds(): Promise<{ added: number; skipped: number; e
       const parsed = await parser.parseURL(feed.url);
       for (const item of parsed.items.slice(0, 20)) {
         if (!item.title || !item.link) continue;
-        const cleanSummary = stripHtml(item.contentSnippet || item.summary || item.content || '');
+        // Combine all available text into full_text so the AI has maximum context.
+        // summary is left NULL so processUnanalyzedArticles always generates an AI summary.
+        const rssSnippet = stripHtml(item.contentSnippet || item.summary || '');
+        const rssContent = stripHtml(item.content || item['content:encoded'] || '');
+        const fullText = rssContent.length > rssSnippet.length ? rssContent : rssSnippet;
         const imageUrl = extractImageUrl(item);
         const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : null;
         const result = insertArticle.run({
           title: item.title.trim(),
           url: item.link,
-          summary: cleanSummary?.slice(0, 1000) || null,
+          summary: null,
           source: feed.name,
           author: item.creator || item.author || null,
           image_url: imageUrl,
           published_at: publishedAt,
-          full_text: stripHtml(item.content || item['content:encoded'] || ''),
+          full_text: fullText || null,
         });
         if (result.changes > 0) added++;
         else skipped++;
