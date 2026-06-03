@@ -12,27 +12,28 @@ function getGoogleKey(): string {
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel(
-    { model: 'gemini-1.5-flash' },
-    { apiVersion: 'v1' }
-  );
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
 
 export async function generateChat(
   message: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }>
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  articleContext?: string
 ): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel(
-    {
-      model: 'gemini-1.5-flash',
-      systemInstruction: 'You are a medical AI assistant for a pharmacist/clinician. Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice. Be concise, accurate, and clinically relevant. Use plain language.',
-    },
-    { apiVersion: 'v1' }
-  );
+  const systemInstruction = [
+    'You are a medical AI assistant for a pharmacist/clinician.',
+    'Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice.',
+    'Be concise, accurate, and clinically relevant. Use plain language.',
+    articleContext ? `\n\nThe user has recently read and engaged with these articles:\n${articleContext}\n\nReference these when relevant to their questions.` : '',
+  ].join(' ');
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    systemInstruction,
+  });
   const chat = model.startChat({
     history: history.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
