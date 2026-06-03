@@ -71,15 +71,9 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       if (msg.includes('No Google AI Studio API key')) {
-        setError('No API key set. Go to Settings → add your Google AI Studio key.');
-      } else if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-        setError('Rate limit reached. Wait a minute and try again.');
-      } else if (msg.includes('404') || msg.includes('not found')) {
-        setError('AI model unavailable. Please try again in a moment.');
-      } else if (msg.includes('403') || msg.includes('API_KEY_INVALID')) {
-        setError('Invalid API key. Check your key in Settings.');
+        setError('No API key configured. Go to Settings to add your Google AI Studio key.');
       } else {
-        setError('Failed to get a response. Please try again.');
+        setError(msg);
       }
     } finally {
       setLoading(false);

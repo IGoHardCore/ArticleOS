@@ -16,8 +16,10 @@ export function AppShell({ children, view, onViewChange }: AppShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('navrail_expanded');
-    if (saved === 'false') setSidebarExpanded(false);
+    const savedSidebar = localStorage.getItem('navrail_expanded');
+    if (savedSidebar === 'false') setSidebarExpanded(false);
+    const savedAi = localStorage.getItem('articleos_ai_open');
+    if (savedAi === 'true') setAiOpen(true);
   }, []);
 
   function toggleSidebar() {
@@ -38,7 +40,11 @@ export function AppShell({ children, view, onViewChange }: AppShellProps) {
         expanded={sidebarExpanded}
         onToggle={toggleSidebar}
         aiOpen={aiOpen}
-        onToggleAi={() => setAiOpen(o => !o)}
+        onToggleAi={() => {
+          const next = !aiOpen;
+          setAiOpen(next);
+          localStorage.setItem('articleos_ai_open', String(next));
+        }}
       />
       <motion.main
         animate={{ marginLeft: sidebarWidth }}
@@ -47,7 +53,7 @@ export function AppShell({ children, view, onViewChange }: AppShellProps) {
       >
         {children}
       </motion.main>
-      <AIAssistant open={aiOpen} onOpenChange={setAiOpen} />
+      <AIAssistant open={aiOpen} onOpenChange={v => { setAiOpen(v); localStorage.setItem('articleos_ai_open', String(v)); }} />
     </div>
   );
 }

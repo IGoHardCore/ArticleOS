@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Save, Check, Key, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Save, Check, Key, Info, CheckCircle2 } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
 
 export default function SettingsPage() {
@@ -98,13 +98,13 @@ export default function SettingsPage() {
               </h2>
             </div>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              Get a free key at <span className="font-mono text-blue-600">aistudio.google.com</span> → API Keys → Create. Your key starts with <span className="font-mono">AIza</span>.
+              Get a free key at <span className="font-mono text-blue-600">aistudio.google.com</span> → API Keys → Create API key.
             </p>
 
             <div className="relative">
               <input
                 type={showKey ? 'text' : 'password'}
-                placeholder="AIzaSy..."
+                placeholder="Paste your API key…"
                 value={newKey}
                 onChange={e => setNewKey(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-12 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 font-mono transition-all"
@@ -117,17 +117,11 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Live validation */}
-            {newKey && !newKey.startsWith('AIza') && (
-              <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-600">
-                <AlertCircle size={12} />
-                Google AI Studio keys start with &quot;AIza&quot; — double-check your key
-              </div>
-            )}
-            {newKey && newKey.startsWith('AIza') && (
+            {/* Live validation — just check minimum length */}
+            {newKey && newKey.trim().length >= 10 && (
               <div className="flex items-center gap-1.5 mt-2 text-xs text-emerald-600">
                 <CheckCircle2 size={12} />
-                Looks like a valid Google AI Studio key
+                Key entered — click Save to apply
               </div>
             )}
 

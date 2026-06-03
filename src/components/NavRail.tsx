@@ -8,6 +8,7 @@ import {
   ChevronRight, ChevronLeft, Sparkles, Bookmark
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SidebarBrand } from './SidebarBrand';
 
 interface NavRailProps {
   onViewChange?: (view: 'cards' | 'feed') => void;
@@ -85,28 +86,11 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen 
     <motion.nav
       animate={{ width: railWidth }}
       transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-      className="fixed left-0 top-0 h-screen bg-white border-r border-slate-100 flex flex-col py-4 z-30 overflow-visible"
+      className="fixed left-0 top-0 h-screen paper-surface border-r border-slate-100 flex flex-col py-4 z-30 overflow-visible"
       style={{ minWidth: 0 }}
     >
-      {/* Logo */}
-      <div className="flex items-center px-3 mb-5 flex-shrink-0">
-        <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-xs">Rx</span>
-        </div>
-        <AnimatePresence>
-          {expanded && (
-            <motion.span
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.14 }}
-              className="ml-2.5 text-sm font-bold text-slate-800 whitespace-nowrap"
-            >
-              ArticleOS
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* Brand */}
+      <SidebarBrand expanded={expanded} />
 
       {/* Main nav */}
       <div className="flex flex-col gap-0.5 px-2 flex-1 overflow-hidden">
@@ -139,7 +123,7 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen 
 
         <div className="my-2 border-t border-slate-100" />
 
-        <NavItem icon={Sparkles} label="AI Guidance" active={aiOpen} expanded={expanded} onClick={handleAIGuidance} />
+        <NavItem icon={Sparkles} label="AI Guidance" active={false} expanded={expanded} onClick={handleAIGuidance} />
       </div>
 
       {/* Blue circle toggle — sits on the right edge of the sidebar */}

@@ -68,7 +68,7 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: direction > 0 ? -80 : 80, scale: 0.97 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="relative bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden w-full max-w-2xl mx-auto"
+      className="relative brand-paper-card overflow-hidden w-full max-w-2xl mx-auto"
     >
       {/* Three-dot menu */}
       <button

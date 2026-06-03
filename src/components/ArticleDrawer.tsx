@@ -99,7 +99,7 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 16 }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden pointer-events-auto"
+              className="brand-paper-card w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden pointer-events-auto"
             >
               {/* Header */}
               <div className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-3">
