@@ -37,6 +37,8 @@ export function AppShell({ children, view, onViewChange }: AppShellProps) {
         onViewChange={onViewChange}
         expanded={sidebarExpanded}
         onToggle={toggleSidebar}
+        aiOpen={aiOpen}
+        onToggleAi={() => setAiOpen(o => !o)}
       />
       <motion.main
         animate={{ marginLeft: sidebarWidth }}

@@ -58,6 +58,11 @@ type Tab = 'summary' | 'article';
 
 export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
   const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const [bookmarked, setBookmarked] = useState(false);
+
+  useEffect(() => {
+    setBookmarked(!!article?.bookmarked);
+  }, [article]);
 
   useEffect(() => {
     setActiveTab('summary');
@@ -94,7 +99,7 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 16 }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden pointer-events-auto"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden pointer-events-auto"
             >
               {/* Header */}
               <div className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-3">
@@ -118,12 +123,40 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-1">
-                  <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
-                    <Bookmark size={14} />
+                  <button
+                    onClick={async () => {
+                      if (!article) return;
+                      const next = !bookmarked;
+                      setBookmarked(next);
+                      await fetch(`/api/articles/${article.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bookmarked: next }),
+                      });
+                    }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                      bookmarked ? 'bg-amber-100 text-amber-500 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                    title={bookmarked ? 'Remove bookmark' : 'Bookmark'}
+                  >
+                    <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
                   </button>
-                  <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
-                    <MoreHorizontal size={15} />
-                  </button>
+                  {article?.url && (
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+                      title="More options"
+                    >
+                      <MoreHorizontal size={15} />
+                    </a>
+                  )}
+                  {!article?.url && (
+                    <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                      <MoreHorizontal size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -194,7 +227,19 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                   article.full_text ? (
                     <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{article.full_text}</p>
                   ) : (
-                    <p className="text-sm text-slate-500 leading-relaxed">Full article text not available.</p>
+                    <div className="text-center py-8">
+                      <p className="text-sm text-slate-500 mb-4">Full article text not available in this preview.</p>
+                      {article.url && (
+                        <a
+                          href={article.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
+                        >
+                          Read Full Article →
+                        </a>
+                      )}
+                    </div>
                   )
                 )}
               </div>

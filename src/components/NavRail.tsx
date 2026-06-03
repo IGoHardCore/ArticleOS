@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Home, FileText, BarChart2, Settings, LayoutList, LayoutGrid,
-  ChevronRight, ChevronLeft, Sparkles
+  ChevronRight, ChevronLeft, Sparkles, Bookmark
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,8 @@ interface NavRailProps {
   view?: 'cards' | 'feed';
   expanded?: boolean;
   onToggle?: () => void;
+  aiOpen?: boolean;
+  onToggleAi?: () => void;
 }
 
 function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
@@ -52,7 +54,7 @@ function NavItem({ href, icon: Icon, label, active, expanded, onClick }: {
   return <button onClick={onClick} className={cls}>{content}</button>;
 }
 
-export function NavRail({ onViewChange, view, expanded = true, onToggle }: NavRailProps) {
+export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen = false, onToggleAi }: NavRailProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -70,7 +72,11 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle }: NavRa
   }
 
   function handleAIGuidance() {
-    window.dispatchEvent(new CustomEvent('articleos-open-ai'));
+    if (onToggleAi) {
+      onToggleAi();
+    } else {
+      window.dispatchEvent(new CustomEvent('articleos-open-ai'));
+    }
   }
 
   const railWidth = expanded ? 200 : 56;
@@ -106,6 +112,7 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle }: NavRa
       <div className="flex flex-col gap-0.5 px-2 flex-1 overflow-hidden">
         <NavItem icon={Home} label="Feed" active={isFeedView} expanded={expanded} onClick={() => handleViewNav('feed')} />
         <NavItem href="/research" icon={FileText} label="Research" active={pathname === '/research'} expanded={expanded} />
+        <NavItem href="/saved" icon={Bookmark} label="Saved" active={pathname === '/saved'} expanded={expanded} />
         <NavItem href="/stats" icon={BarChart2} label="Insights" active={pathname === '/stats'} expanded={expanded} />
         <NavItem href="/settings" icon={Settings} label="Settings" active={pathname === '/settings'} expanded={expanded} />
 
@@ -132,7 +139,7 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle }: NavRa
 
         <div className="my-2 border-t border-slate-100" />
 
-        <NavItem icon={Sparkles} label="AI Guidance" active={false} expanded={expanded} onClick={handleAIGuidance} />
+        <NavItem icon={Sparkles} label="AI Guidance" active={aiOpen} expanded={expanded} onClick={handleAIGuidance} />
       </div>
 
       {/* Blue circle toggle — sits on the right edge of the sidebar */}

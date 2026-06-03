@@ -12,7 +12,10 @@ function getGoogleKey(): string {
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+  const model = genAI.getGenerativeModel(
+    { model: 'gemini-1.5-flash' },
+    { apiVersion: 'v1' }
+  );
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
@@ -23,10 +26,13 @@ export async function generateChat(
 ): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash-latest',
-    systemInstruction: 'You are a medical AI assistant for a pharmacist/clinician. Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice. Be concise, accurate, and clinically relevant. Use plain language.',
-  });
+  const model = genAI.getGenerativeModel(
+    {
+      model: 'gemini-1.5-flash',
+      systemInstruction: 'You are a medical AI assistant for a pharmacist/clinician. Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice. Be concise, accurate, and clinically relevant. Use plain language.',
+    },
+    { apiVersion: 'v1' }
+  );
   const chat = model.startChat({
     history: history.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',

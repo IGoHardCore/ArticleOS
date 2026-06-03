@@ -69,7 +69,18 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
       if (!res.ok) throw new Error(data.error || 'Request failed');
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      if (msg.includes('No Google AI Studio API key')) {
+        setError('No API key set. Go to Settings → add your Google AI Studio key.');
+      } else if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        setError('Rate limit reached. Wait a minute and try again.');
+      } else if (msg.includes('404') || msg.includes('not found')) {
+        setError('AI model unavailable. Please try again in a moment.');
+      } else if (msg.includes('403') || msg.includes('API_KEY_INVALID')) {
+        setError('Invalid API key. Check your key in Settings.');
+      } else {
+        setError('Failed to get a response. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -214,7 +225,7 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div>
             <div className="text-center py-6">
@@ -241,7 +252,7 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+              className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words overflow-hidden ${
                 m.role === 'user'
                   ? 'bg-indigo-600 text-white rounded-tr-sm'
                   : 'bg-slate-100 text-slate-800 rounded-tl-sm'

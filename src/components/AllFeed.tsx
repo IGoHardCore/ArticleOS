@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Newspaper, SlidersHorizontal, ChevronDown, LayoutList, LayoutGrid } from 'lucide-react';
+import { Newspaper, SlidersHorizontal, ChevronDown, LayoutList, LayoutGrid, RefreshCw } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 
@@ -62,20 +62,24 @@ function timeAgo(dateStr: string | null): string {
 interface AllFeedProps {
   onArticleClick: (article: Article) => void;
   mode?: 'recommended' | 'latest';
+  onFetch?: () => void;
+  fetching?: boolean;
 }
 
-export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) {
+export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetching }: AllFeedProps) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [sortMode, setSortMode] = useState<'recommended' | 'latest'>(mode ?? 'recommended');
+  const [layout, setLayout] = useState<'list' | 'grid'>('list');
 
   const fetchArticles = useCallback(async (reset = false) => {
     const currentOffset = reset ? 0 : offset;
     if (reset) setLoading(true); else setLoadingMore(true);
     try {
-      const res = await fetch(`/api/articles?mode=${mode}&limit=20&offset=${currentOffset}`);
+      const res = await fetch(`/api/articles?mode=${sortMode}&limit=20&offset=${currentOffset}`);
       const data = await res.json();
       const newArticles: Article[] = data.articles || [];
       if (reset) {
@@ -90,13 +94,13 @@ export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) 
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [mode, offset]);
+  }, [sortMode, offset]);
 
   useEffect(() => {
     setOffset(0);
     fetchArticles(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [sortMode]);
 
   return (
     <div>
@@ -113,15 +117,44 @@ export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) 
               <SlidersHorizontal size={12} />
               Filters
             </button>
-            <button className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 hover:border-slate-300 transition-colors font-medium">
-              Latest
+            <button
+              onClick={() => setSortMode(prev => prev === 'recommended' ? 'latest' : 'recommended')}
+              className={`flex items-center gap-1 px-3 py-1.5 border rounded-xl text-xs transition-colors font-medium ${
+                sortMode === 'latest'
+                  ? 'bg-blue-50 border-blue-200 text-blue-600'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {sortMode === 'latest' ? 'Latest' : 'For You'}
               <ChevronDown size={12} />
             </button>
+            <button
+              onClick={onFetch}
+              disabled={fetching}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors flex-shrink-0"
+            >
+              <RefreshCw size={11} className={fetching ? 'animate-spin' : ''} />
+              {fetching ? 'Fetching…' : 'Fetch'}
+            </button>
             <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
-              <button className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+              <button
+                onClick={() => setLayout('list')}
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                  layout === 'list'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
                 <LayoutList size={14} />
               </button>
-              <button className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+              <button
+                onClick={() => setLayout('grid')}
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                  layout === 'grid'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
                 <LayoutGrid size={14} />
               </button>
             </div>
@@ -145,6 +178,69 @@ export function AllFeed({ onArticleClick, mode = 'recommended' }: AllFeedProps) 
           <p className="text-slate-500 font-medium">No articles yet</p>
           <p className="text-slate-400 text-sm mt-1">Use the AI panel to refresh your feed</p>
         </div>
+      ) : layout === 'grid' ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {articles.map((article, i) => (
+              <motion.div
+                key={article.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.04, 0.3) }}
+                onClick={() => onArticleClick(article)}
+                className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:shadow-md transition-all group"
+              >
+                {/* Top row: source · time */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className={`text-xs font-semibold ${getSourceColor(article.source)}`}>
+                    {article.source || 'Unknown'}
+                  </span>
+                  <span className="text-slate-300 text-xs">·</span>
+                  <span className="text-xs text-slate-400">{timeAgo(article.published_at)}</span>
+                </div>
+
+                {/* Title */}
+                <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-3 group-hover:text-blue-700 transition-colors mb-2">
+                  {article.title}
+                </h3>
+
+                {/* Tags (max 2) */}
+                {article.tags && article.tags.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap mb-2">
+                    {article.tags.slice(0, 2).map(tag => (
+                      <span
+                        key={tag.id}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Rating bar */}
+                <div
+                  className="border-t border-slate-100 pt-2"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <RatingBar articleId={article.id} initialRating={article.user_rating} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="pt-4 text-center">
+              <button
+                onClick={() => fetchArticles(false)}
+                disabled={loadingMore}
+                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="space-y-3">
           {articles.map((article, i) => (

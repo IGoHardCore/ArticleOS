@@ -30,7 +30,8 @@ function initSchema(db: Database.Database) {
       image_url TEXT,
       published_at TEXT,
       scraped_at TEXT DEFAULT (datetime('now')),
-      full_text TEXT
+      full_text TEXT,
+      bookmarked INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS tags (
@@ -75,6 +76,9 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_article_tags_tag ON article_tags(tag_id);
   `);
 
+  // Migrate: add bookmarked column to existing DBs
+  try { db.exec('ALTER TABLE articles ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+
   const tagColors: Record<string, string> = {
     cancer: '#ef4444',
     cardiology: '#f97316',
@@ -117,6 +121,7 @@ export interface Article {
   published_at: string | null;
   scraped_at: string;
   full_text: string | null;
+  bookmarked?: number;
   tags?: Tag[];
   avg_rating?: number;
   rating_count?: number;

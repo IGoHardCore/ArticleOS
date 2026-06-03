@@ -54,6 +54,13 @@ export default function HomePage() {
 
   useEffect(() => { fetchArticles(); }, [fetchArticles]);
 
+  // Auto-fetch every 3 hours
+  useEffect(() => {
+    const id = setInterval(refreshFeed, 3 * 60 * 60 * 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function refreshFeed() {
     setRefreshing(true);
     try {
@@ -90,7 +97,7 @@ export default function HomePage() {
       <>
 
         {/* ─── Top bar ─── */}
-        <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 px-5 py-3 flex items-center gap-3 pr-16">
+        <div className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 px-5 py-3 flex items-center gap-3">
           {/* Mode toggle */}
           <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
             <button
@@ -150,21 +157,11 @@ export default function HomePage() {
             </AnimatePresence>
           </div>
 
-          {/* Refresh Feed button */}
-          <button
-            onClick={refreshFeed}
-            disabled={refreshing}
-            title="Refresh Feed — fetches new articles from medical journals"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors disabled:opacity-50 flex-shrink-0"
-          >
-            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-            {refreshing ? 'Fetching…' : 'Refresh'}
-          </button>
         </div>
 
         {/* ─── Cards View ─── */}
         {view === 'cards' && (
-          <div className="max-w-xl mx-auto px-4 py-6">
+          <div className="max-w-2xl mx-auto px-6 py-6">
             {/* Top Pick */}
             {!query && mode === 'recommended' && (
               <div className="mb-6">
@@ -266,8 +263,8 @@ export default function HomePage() {
 
         {/* ─── Feed View ─── */}
         {view === 'feed' && (
-          <div className="max-w-2xl mx-auto px-4 py-6">
-            <AllFeed onArticleClick={setDrawerArticle} mode={mode} />
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
           </div>
         )}
       <ArticleDrawer article={drawerArticle} onClose={() => setDrawerArticle(null)} />

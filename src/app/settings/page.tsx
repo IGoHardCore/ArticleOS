@@ -15,10 +15,24 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.json())
-      .then(d => {
+      .then(async d => {
         if (d.api_key_hint) {
           setExistingHint(d.api_key_hint);
           setHasSavedKey(true);
+        } else {
+          // DB was wiped (container restart) — check localStorage backup
+          const cached = localStorage.getItem('articleos_api_key');
+          if (cached) {
+            setLoading(true);
+            await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ api_key: cached }),
+            });
+            setHasSavedKey(true);
+            setExistingHint('••••' + cached.slice(-4));
+            setLoading(false);
+          }
         }
       });
   }, []);
@@ -26,13 +40,16 @@ export default function SettingsPage() {
   async function saveSettings() {
     if (!newKey.trim()) return;
     setLoading(true);
+    const key = newKey.trim();
     await fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: newKey.trim() }),
+      body: JSON.stringify({ api_key: key }),
     });
+    // Persist to localStorage so it survives container restarts
+    localStorage.setItem('articleos_api_key', key);
     setHasSavedKey(true);
-    setExistingHint('••••' + newKey.trim().slice(-4));
+    setExistingHint('••••' + key.slice(-4));
     setNewKey('');
     setSaved(true);
     setLoading(false);
@@ -45,6 +62,7 @@ export default function SettingsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: '' }),
     });
+    localStorage.removeItem('articleos_api_key');
     setHasSavedKey(false);
     setExistingHint('');
     setNewKey('');
