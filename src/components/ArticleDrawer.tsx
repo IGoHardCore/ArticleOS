@@ -59,14 +59,28 @@ type Tab = 'summary' | 'article';
 export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const [bookmarked, setBookmarked] = useState(false);
+  const [liveSummary, setLiveSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
     setBookmarked(!!article?.bookmarked);
+    setLiveSummary(null);
   }, [article]);
 
   useEffect(() => {
     setActiveTab('summary');
   }, [article]);
+
+  // Auto-generate summary if article is opened without one
+  useEffect(() => {
+    if (!article || article.summary || liveSummary || summaryLoading) return;
+    setSummaryLoading(true);
+    fetch(`/api/articles/${article.id}/summarize`, { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if (d.summary) setLiveSummary(d.summary); })
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false));
+  }, [article, liveSummary, summaryLoading]);
 
   useEffect(() => {
     if (!article) return;
@@ -210,17 +224,28 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                       <div className="w-2 h-2 rounded-full bg-blue-500" />
                       <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">AI Summary</span>
                     </div>
-                    {article.summary ? (
+                    {(article.summary || liveSummary) ? (
                       <div className="space-y-3">
-                        {article.summary.split('\n\n').filter(Boolean).map((para, i) => (
+                        {(article.summary || liveSummary)!.split('\n\n').filter(Boolean).map((para, i) => (
                           <p key={i} className="text-sm text-slate-700 leading-relaxed">{para}</p>
                         ))}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
-                        <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-                        AI summary is being generated — check back shortly.
+                    ) : summaryLoading ? (
+                      <div className="space-y-2 py-1">
+                        <div className="flex items-center gap-2 text-xs text-blue-500 mb-3">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                          <span>Generating AI summary…</span>
+                        </div>
+                        <div className="h-3 bg-blue-100 rounded animate-pulse w-full" />
+                        <div className="h-3 bg-blue-100 rounded animate-pulse w-5/6" />
+                        <div className="h-3 bg-blue-100 rounded animate-pulse w-4/5 mb-2" />
+                        <div className="h-3 bg-blue-100 rounded animate-pulse w-full" />
+                        <div className="h-3 bg-blue-100 rounded animate-pulse w-3/4" />
                       </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">No summary available.</p>
                     )}
                   </div>
                 )}
