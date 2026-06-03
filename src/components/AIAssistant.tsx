@@ -57,23 +57,41 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
     setInput('');
     setError('');
     const userMsg: Message = { role: 'user', content: msg };
-    setMessages(prev => [...prev, userMsg]);
+    const historySnapshot = [...messages];
+    setMessages(prev => [...prev, userMsg, { role: 'assistant', content: '' }]);
     setLoading(true);
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: messages }),
+        body: JSON.stringify({ message: msg, history: historySnapshot }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Request failed');
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Request failed');
+      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: 'assistant', content: accumulated };
+          return updated;
+        });
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong';
-      if (msg.includes('No Google AI Studio API key')) {
-        setError('No API key configured. Go to Settings to add your Google AI Studio key.');
+      const errMsg = err instanceof Error ? err.message : 'Something went wrong';
+      setMessages(prev => prev.slice(0, -1)); // remove empty assistant bubble
+      if (errMsg.includes('No Google AI Studio API key')) {
+        setError('No API key configured. Go to Settings to add your key.');
+      } else if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+        setError('Rate limit hit. Wait a minute and try again.');
       } else {
-        setError(msg);
+        setError(errMsg);
       }
     } finally {
       setLoading(false);
@@ -185,6 +203,57 @@ interface PanelContentProps {
   onClear: () => void;
 }
 
+function renderMarkdown(text: string) {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+    // Numbered list item
+    if (/^\d+\.\s/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s/, ''));
+        i++;
+      }
+      elements.push(
+        <ol key={i} className="list-decimal list-inside space-y-1 my-1">
+          {items.map((item, j) => <li key={j}>{formatInline(item)}</li>)}
+        </ol>
+      );
+      continue;
+    }
+    // Bullet list item
+    if (/^[-*•]\s/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*•]\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^[-*•]\s/, ''));
+        i++;
+      }
+      elements.push(
+        <ul key={i} className="list-disc list-inside space-y-1 my-1">
+          {items.map((item, j) => <li key={j}>{formatInline(item)}</li>)}
+        </ul>
+      );
+      continue;
+    }
+    // Regular paragraph
+    elements.push(<p key={i} className="leading-relaxed">{formatInline(line)}</p>);
+    i++;
+  }
+  return elements;
+}
+
+function formatInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      : part
+  );
+}
+
 function PanelContent({ messages, input, loading, error, inputRef, bottomRef, onInput, onSend, onClose, onClear }: PanelContentProps) {
   return (
     <>
@@ -246,19 +315,25 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words overflow-hidden ${
+              className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-sm break-words overflow-hidden ${
                 m.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-tr-sm'
-                  : 'bg-slate-100 text-slate-800 rounded-tl-sm'
+                  ? 'bg-indigo-600 text-white rounded-tr-sm leading-relaxed'
+                  : 'bg-slate-100 text-slate-800 rounded-tl-sm space-y-1.5'
               }`}
             >
-              {m.content}
+              {m.role === 'user'
+                ? m.content
+                : m.content
+                  ? renderMarkdown(m.content)
+                  : <span className="opacity-40 animate-pulse">…</span>
+              }
             </div>
           </div>
         ))}
 
-        {loading && (
-          <div className="flex justify-start">
+        {/* Loading indicator only shown before first chunk arrives */}
+        {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
+          <div className="flex justify-start -mt-2">
             <div className="bg-slate-100 px-3.5 py-2.5 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />

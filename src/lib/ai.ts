@@ -9,12 +9,28 @@ function getGoogleKey(): string {
   return key;
 }
 
+// gemini-2.0-flash: 1500 free requests/day vs gemini-2.5-flash's 20/day
+const CHAT_MODEL = 'gemini-2.0-flash';
+const TEXT_MODEL = 'gemini-2.0-flash';
+
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = genAI.getGenerativeModel({ model: TEXT_MODEL });
   const result = await model.generateContent(prompt);
   return result.response.text();
+}
+
+function buildChatModel(key: string, articleContext?: string) {
+  const genAI = new GoogleGenerativeAI(key);
+  const systemInstruction = [
+    'You are a medical AI assistant for a pharmacist/clinician.',
+    'Format responses clearly: use short paragraphs, numbered lists for steps, and plain bold for drug names.',
+    'Never use raw markdown symbols like ** or * — write naturally.',
+    'Be concise, specific, and clinically relevant.',
+    articleContext ? `The user has recently engaged with these articles:\n${articleContext}` : '',
+  ].filter(Boolean).join('\n');
+  return genAI.getGenerativeModel({ model: CHAT_MODEL, systemInstruction });
 }
 
 export async function generateChat(
@@ -23,15 +39,7 @@ export async function generateChat(
   articleContext?: string
 ): Promise<string> {
   const key = getGoogleKey();
-  const genAI = new GoogleGenerativeAI(key);
-  const systemInstruction = [
-    'You are a medical AI assistant for a pharmacist/clinician.',
-    'Answer questions about medical topics, drug interactions, clinical research, and pharmacy practice.',
-    'Be concise, accurate, and clinically relevant. Use plain language.',
-    articleContext ? `The user has recently engaged with these articles:\n${articleContext}` : '',
-  ].filter(Boolean).join(' ');
-
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', systemInstruction });
+  const model = buildChatModel(key, articleContext);
   const chat = model.startChat({
     history: history.map(m => ({
       role: m.role === 'assistant' ? 'model' as const : 'user' as const,
@@ -40,6 +48,29 @@ export async function generateChat(
   });
   const result = await chat.sendMessage(message);
   return result.response.text();
+}
+
+export async function generateChatStream(
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  articleContext?: string
+): Promise<AsyncIterable<string>> {
+  const key = getGoogleKey();
+  const model = buildChatModel(key, articleContext);
+  const chat = model.startChat({
+    history: history.map(m => ({
+      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+      parts: [{ text: m.content }],
+    })),
+  });
+  const result = await chat.sendMessageStream(message);
+  async function* textStream() {
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
+  }
+  return textStream();
 }
 
 const TAG_LIST = [

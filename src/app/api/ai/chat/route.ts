@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateChat } from '@/lib/ai';
+import { NextRequest } from 'next/server';
+import { generateChatStream } from '@/lib/ai';
 import { getDb } from '@/lib/db';
 
 function buildArticleContext(): string {
   try {
     const db = getDb();
-    // Pull articles the user has rated 3+ or bookmarked, most recent first
     const articles = db.prepare(`
       SELECT DISTINCT a.title, a.source, a.summary, r.rating
       FROM articles a
@@ -16,11 +15,10 @@ function buildArticleContext(): string {
     `).all() as Array<{ title: string; source: string | null; summary: string | null; rating: number | null }>;
 
     if (!articles.length) return '';
-
     return articles.map(a => {
-      const rating = a.rating ? ` (user rated ${a.rating}/5)` : ' (bookmarked)';
-      const summary = a.summary ? a.summary.split('\n\n')[0].slice(0, 200) : '';
-      return `- "${a.title}"${a.source ? ` [${a.source}]` : ''}${rating}${summary ? ': ' + summary : ''}`;
+      const rating = a.rating ? ` (rated ${a.rating}/5)` : ' (bookmarked)';
+      const snippet = a.summary ? a.summary.split('\n\n')[0].slice(0, 150) : '';
+      return `- "${a.title}"${a.source ? ` [${a.source}]` : ''}${rating}${snippet ? ': ' + snippet : ''}`;
     }).join('\n');
   } catch {
     return '';
@@ -29,13 +27,37 @@ function buildArticleContext(): string {
 
 export async function POST(req: NextRequest) {
   const { message, history = [] } = await req.json();
-  if (!message?.trim()) return NextResponse.json({ error: 'Empty message' }, { status: 400 });
+  if (!message?.trim()) return new Response('Empty message', { status: 400 });
+
   try {
     const articleContext = buildArticleContext();
-    const response = await generateChat(message, history, articleContext);
-    return NextResponse.json({ response });
+    const stream = await generateChatStream(message, history, articleContext);
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of stream) {
+            controller.enqueue(encoder.encode(chunk));
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'AI request failed';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
