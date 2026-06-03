@@ -217,7 +217,10 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500 leading-relaxed">No AI summary available for this article.</p>
+                      <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
+                        <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
+                        AI summary is being generated — check back shortly.
+                      </div>
                     )}
                   </div>
                 )}

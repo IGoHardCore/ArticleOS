@@ -47,7 +47,7 @@ export function getRecommendedArticles(limit = 20, offset = 0): Article[] {
     FROM articles a
     LEFT JOIN ratings r ON r.article_id = a.id
     LEFT JOIN article_tags at ON at.article_id = a.id
-    WHERE a.summary IS NOT NULL AND a.summary != ''
+    
     GROUP BY a.id
     ORDER BY a.published_at DESC
     LIMIT 200
@@ -135,7 +135,7 @@ export function getLatestArticles(limit = 20, offset = 0): Article[] {
       MAX(r.rating) AS user_rating
     FROM articles a
     LEFT JOIN ratings r ON r.article_id = a.id
-    WHERE a.summary IS NOT NULL AND a.summary != ''
+    
     GROUP BY a.id
     ORDER BY a.published_at DESC
     LIMIT ? OFFSET ?

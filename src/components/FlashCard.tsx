@@ -117,14 +117,19 @@ export function FlashCard({ article, direction, onExpand, onRate }: FlashCardPro
         {/* Title */}
         <h2 className="text-xl font-bold text-slate-900 leading-snug mb-3">{article.title}</h2>
 
-        {/* Summary — 2 paragraphs, each line-clamp-2 */}
-        {summaryParagraphs.length > 0 && (
+        {/* Summary */}
+        {summaryParagraphs.length > 0 ? (
           <div className="space-y-2 mb-4">
             {summaryParagraphs.map((para, i) => (
               <p key={i} className="text-sm text-slate-500 leading-relaxed line-clamp-3">
                 {para}
               </p>
             ))}
+          </div>
+        ) : (
+          <div className="mb-4 flex items-center gap-2 text-xs text-slate-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            AI summary generating…
           </div>
         )}
       </div>
