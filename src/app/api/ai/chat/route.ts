@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { generateChatStream } from '@/lib/ai';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
 import { checkRateLimit } from '@/lib/ratelimit';
 
 const MAX_MESSAGE_LENGTH = 8000;
@@ -9,21 +9,25 @@ const CHAT_RATE_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
 async function buildArticleContext(userId: string): Promise<string> {
   try {
-    const articles = await sql<{ title: string; source: string | null; summary: string | null; rating: number | null }[]>`
-      SELECT DISTINCT a.title, a.source, a.summary, r.rating
-      FROM articles a
-      LEFT JOIN ratings r ON r.article_id = a.id AND r.clerk_user_id = ${userId}
-      LEFT JOIN bookmarks b ON b.article_id = a.id AND b.clerk_user_id = ${userId}
-      WHERE b.clerk_user_id IS NOT NULL OR r.rating >= 3
-      ORDER BY r.rating DESC NULLS LAST, a.published_at DESC NULLS LAST
-      LIMIT 20
-    `;
+    const [{ data: bookmarkData }, { data: ratingData }] = await Promise.all([
+      db.from('bookmarks').select('article_id').eq('clerk_user_id', userId),
+      db.from('ratings').select('article_id, rating').eq('clerk_user_id', userId).gte('rating', 3),
+    ]);
+    const ids = [...new Set([
+      ...(bookmarkData ?? []).map((b: { article_id: number }) => b.article_id),
+      ...(ratingData ?? []).map((r: { article_id: number }) => r.article_id),
+    ])].slice(0, 20);
+    if (!ids.length) return '';
 
-    if (!articles.length) return '';
-    return articles.map(a => {
-      const rating = a.rating ? ` (rated ${a.rating}/5)` : ' (bookmarked)';
+    const { data: articlesData } = await db.from('articles').select('id, title, source, summary').in('id', ids);
+    const ratingMap = new Map((ratingData ?? []).map((r: { article_id: number; rating: number }) => [r.article_id, r.rating]));
+    const bookmarkSet = new Set((bookmarkData ?? []).map((b: { article_id: number }) => b.article_id));
+
+    return (articlesData ?? []).map((a: { id: number; title: string; source: string | null; summary: string | null }) => {
+      const rating = ratingMap.get(a.id);
+      const label = rating ? ` (rated ${rating}/5)` : bookmarkSet.has(a.id) ? ' (bookmarked)' : '';
       const snippet = a.summary ? a.summary.split('\n\n')[0].slice(0, 150) : '';
-      return `- "${a.title}"${a.source ? ` [${a.source}]` : ''}${rating}${snippet ? ': ' + snippet : ''}`;
+      return `- "${a.title}"${a.source ? ` [${a.source}]` : ''}${label}${snippet ? ': ' + snippet : ''}`;
     }).join('\n');
   } catch {
     return '';

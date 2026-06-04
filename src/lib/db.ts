@@ -1,15 +1,13 @@
-import postgres from 'postgres';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Global singleton prevents multiple connections during dev hot-reload
-const globalForDb = globalThis as unknown as { sql: ReturnType<typeof postgres> | undefined };
+const globalForDb = globalThis as unknown as { _supabase: SupabaseClient | undefined };
 
-export const sql = globalForDb.sql ?? postgres(process.env.DATABASE_URL!, {
-  max: 5,
-  idle_timeout: 20,
-  connect_timeout: 10,
-});
+export const db = globalForDb._supabase ?? createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+);
 
-if (process.env.NODE_ENV !== 'production') globalForDb.sql = sql;
+if (process.env.NODE_ENV !== 'production') globalForDb._supabase = db;
 
 export interface Article {
   id: number;

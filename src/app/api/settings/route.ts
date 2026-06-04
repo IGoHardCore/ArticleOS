@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const rows = await sql<{ key: string; value: string }[]>`
-    SELECT key, value FROM user_settings WHERE clerk_user_id = ${userId}
-  `;
-  const settings: Record<string, string> = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  const { data: rows } = await db.from('user_settings').select('key, value').eq('clerk_user_id', userId);
+  const settings: Record<string, string> = Object.fromEntries(
+    (rows ?? []).map((r: { key: string; value: string }) => [r.key, r.value])
+  );
 
   if (settings.mistral_api_key) {
     settings.mistral_api_key_hint = '••••' + settings.mistral_api_key.slice(-4);
@@ -38,10 +38,7 @@ export async function POST(req: NextRequest) {
 
   for (const [key, value] of Object.entries(body)) {
     if (ALLOWED_KEYS.has(key) && typeof value === 'string') {
-      await sql`
-        INSERT INTO user_settings (clerk_user_id, key, value) VALUES (${userId}, ${key}, ${value})
-        ON CONFLICT (clerk_user_id, key) DO UPDATE SET value = EXCLUDED.value
-      `;
+      await db.from('user_settings').upsert({ clerk_user_id: userId, key, value }, { onConflict: 'clerk_user_id,key' });
     }
   }
   return NextResponse.json({ success: true });

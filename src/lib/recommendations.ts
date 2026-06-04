@@ -1,4 +1,4 @@
-import { sql, Article, Tag } from './db';
+import { db, Article, Tag } from './db';
 
 interface TagScore {
   tag_id: number;
@@ -6,271 +6,251 @@ interface TagScore {
   weight: number;
 }
 
-export async function getTagWeights(userId?: string): Promise<TagScore[]> {
-  if (userId) {
-    return sql<TagScore[]>`
-      SELECT at.tag_id, t.name AS tag_name,
-        SUM(r.rating * (1.0 / (1 + EXTRACT(EPOCH FROM (NOW() - r.created_at)) / 604800.0))) AS weight
-      FROM ratings r
-      JOIN article_tags at ON at.article_id = r.article_id
-      JOIN tags t ON t.id = at.tag_id
-      WHERE r.clerk_user_id = ${userId}
-      GROUP BY at.tag_id, t.name ORDER BY weight DESC
-    `;
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+async function fetchTagsForIds(ids: number[]): Promise<Map<number, Tag[]>> {
+  if (!ids.length) return new Map();
+  const { data } = await db
+    .from('article_tags')
+    .select('article_id, tags(id, name, color)')
+    .in('article_id', ids);
+  const map = new Map<number, Tag[]>();
+  for (const row of data || []) {
+    const t = row.tags as unknown as Tag;
+    if (!t) continue;
+    const arr = map.get(row.article_id) ?? [];
+    arr.push(t);
+    map.set(row.article_id, arr);
   }
-  return sql<TagScore[]>`
-    SELECT at.tag_id, t.name AS tag_name,
-      SUM(r.rating * (1.0 / (1 + EXTRACT(EPOCH FROM (NOW() - r.created_at)) / 604800.0))) AS weight
-    FROM ratings r
-    JOIN article_tags at ON at.article_id = r.article_id
-    JOIN tags t ON t.id = at.tag_id
-    GROUP BY at.tag_id, t.name ORDER BY weight DESC
-  `;
+  return map;
+}
+
+type RatingRow = { article_id: number; rating: number; clerk_user_id: string | null; created_at: string };
+
+async function fetchRatingsForIds(ids: number[]): Promise<RatingRow[]> {
+  if (!ids.length) return [];
+  const { data } = await db
+    .from('ratings')
+    .select('article_id, rating, clerk_user_id, created_at')
+    .in('article_id', ids);
+  return (data ?? []) as RatingRow[];
+}
+
+function aggregateRatings(ratings: RatingRow[], userId?: string) {
+  const byArticle = new Map<number, RatingRow[]>();
+  for (const r of ratings) {
+    const arr = byArticle.get(r.article_id) ?? [];
+    arr.push(r);
+    byArticle.set(r.article_id, arr);
+  }
+  return {
+    avgRating: (id: number) => {
+      const rs = byArticle.get(id) ?? [];
+      return rs.length ? rs.reduce((s, r) => s + r.rating, 0) / rs.length : 0;
+    },
+    ratingCount: (id: number) => (byArticle.get(id) ?? []).length,
+    userRating: (id: number) => {
+      if (!userId) return null;
+      return byArticle.get(id)?.find(r => r.clerk_user_id === userId)?.rating ?? null;
+    },
+  };
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────
+
+export async function getTagWeights(userId?: string): Promise<TagScore[]> {
+  const { data: ratings } = userId
+    ? await db.from('ratings').select('article_id, rating, created_at').eq('clerk_user_id', userId)
+    : await db.from('ratings').select('article_id, rating, created_at');
+  if (!ratings?.length) return [];
+
+  const articleIds = [...new Set(ratings.map((r: { article_id: number }) => r.article_id))];
+  const { data: tagLinks } = await db
+    .from('article_tags')
+    .select('article_id, tags(id, name, color)')
+    .in('article_id', articleIds);
+
+  const weights = new Map<number, TagScore>();
+  for (const r of ratings as { article_id: number; rating: number; created_at: string }[]) {
+    const recency = 1.0 / (1 + (Date.now() - new Date(r.created_at).getTime()) / 604800000);
+    const contribution = r.rating * recency;
+    const links = (tagLinks ?? []).filter((l: { article_id: number }) => l.article_id === r.article_id);
+    for (const link of links) {
+      const t = link.tags as unknown as Tag;
+      if (!t) continue;
+      const existing = weights.get(t.id) ?? { tag_id: t.id, tag_name: t.name, weight: 0 };
+      existing.weight += contribution;
+      weights.set(t.id, existing);
+    }
+  }
+  return [...weights.values()].sort((a, b) => b.weight - a.weight);
 }
 
 export async function getRecommendedArticles(limit = 20, offset = 0, userId?: string): Promise<Article[]> {
   const weights = await getTagWeights(userId);
-
-  if (weights.length === 0) {
-    return getLatestArticles(limit, offset, userId);
-  }
+  if (!weights.length) return getLatestArticles(limit, offset, userId);
 
   const weightMap = Object.fromEntries(weights.map(w => [w.tag_id, w.weight]));
   const maxWeight = Math.max(...weights.map(w => w.weight), 1);
 
-  type ArticleRow = Article & { avg_rating: number; rating_count: number };
+  const { data: raw } = await db
+    .from('articles')
+    .select('*')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .limit(200);
 
-  const articles: ArticleRow[] = userId
-    ? await sql<ArticleRow[]>`
-        SELECT DISTINCT
-          a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating,
-          COUNT(DISTINCT r.id) AS rating_count,
-          MAX(CASE WHEN r.clerk_user_id = ${userId} THEN r.rating END) AS user_rating
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id AND (r.clerk_user_id = ${userId} OR r.clerk_user_id IS NULL)
-        LEFT JOIN article_tags at ON at.article_id = a.id
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT 200
-      `
-    : await sql<ArticleRow[]>`
-        SELECT DISTINCT
-          a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating,
-          COUNT(DISTINCT r.id) AS rating_count,
-          MAX(r.rating) AS user_rating
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id
-        LEFT JOIN article_tags at ON at.article_id = a.id
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT 200
-      `;
+  const articles = (raw ?? []) as Article[];
+  const ids = articles.map(a => a.id);
+  const [tagMap, ratings] = await Promise.all([fetchTagsForIds(ids), fetchRatingsForIds(ids)]);
+  const agg = aggregateRatings(ratings, userId);
 
-  const articleIds = articles.map(a => a.id);
-  const allTagRows = articleIds.length > 0
-    ? await sql<{ article_id: number; id: number; name: string; color: string }[]>`
-        SELECT at.article_id, t.id, t.name, t.color
-        FROM article_tags at JOIN tags t ON t.id = at.tag_id
-        WHERE at.article_id = ANY(${sql.array(articleIds)})
-      `
-    : [];
-
-  const tagsByArticle = new Map<number, { id: number; name: string; color: string }[]>();
-  for (const row of allTagRows) {
-    const aid = Number(row.article_id);
-    if (!tagsByArticle.has(aid)) tagsByArticle.set(aid, []);
-    tagsByArticle.get(aid)!.push({ id: Number(row.id), name: row.name, color: row.color });
-  }
-
-  const scored = articles.map(article => {
-    const id = Number(article.id);
-    const articleTagIds = (tagsByArticle.get(id) || []).map(t => t.id);
+  const scored = articles.map(a => {
+    const articleTags = tagMap.get(a.id) ?? [];
     let tagScore = 0;
-    for (const tag_id of articleTagIds) {
-      if (weightMap[tag_id]) tagScore += weightMap[tag_id] / maxWeight;
+    for (const t of articleTags) {
+      if (weightMap[t.id]) tagScore += weightMap[t.id] / maxWeight;
     }
-    const hoursOld = article.published_at
-      ? (Date.now() - new Date(article.published_at).getTime()) / 3600000
+    const hoursOld = a.published_at
+      ? (Date.now() - new Date(a.published_at).getTime()) / 3600000
       : 168;
     const recencyBonus = Math.max(0, 1 - hoursOld / 72);
-    const noveltyBonus = article.rating_count > 0 ? 0 : 0.2;
-    article.score = tagScore * 2 + recencyBonus + noveltyBonus;
-    return article;
+    const noveltyBonus = agg.ratingCount(a.id) === 0 ? 0.2 : 0;
+    return {
+      ...a,
+      tags: articleTags,
+      avg_rating: agg.avgRating(a.id),
+      rating_count: agg.ratingCount(a.id),
+      user_rating: agg.userRating(a.id) ?? undefined,
+      score: tagScore * 2 + recencyBonus + noveltyBonus,
+    };
   });
 
-  scored.sort((a, b) => (b.score || 0) - (a.score || 0));
-  return scored.slice(offset, offset + limit).map(article => ({
-    ...article,
-    id: Number(article.id),
-    tags: tagsByArticle.get(Number(article.id)) || [],
-  }));
+  scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return scored.slice(offset, offset + limit);
 }
 
 export async function getTopPick(period: 'week' | 'month', userId?: string): Promise<Article | null> {
-  const cutoff = new Date(Date.now() - (period === 'week' ? 7 : 30) * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(Date.now() - (period === 'week' ? 7 : 30) * 86400000).toISOString();
 
-  type TopRow = Article & { avg_rating: number; rating_count: number; score: number };
+  const { data: periodRatings } = userId
+    ? await db.from('ratings').select('article_id, rating').gte('created_at', cutoff).eq('clerk_user_id', userId)
+    : await db.from('ratings').select('article_id, rating').gte('created_at', cutoff);
+  if (!periodRatings?.length) return null;
 
-  const rows: TopRow[] = userId
-    ? await sql<TopRow[]>`
-        SELECT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(r.id) AS rating_count,
-          AVG(r.rating) * COUNT(r.id) AS score
-        FROM articles a
-        JOIN ratings r ON r.article_id = a.id
-        WHERE r.created_at >= ${cutoff} AND r.clerk_user_id = ${userId}
-        GROUP BY a.id HAVING COUNT(r.id) >= 1
-        ORDER BY score DESC LIMIT 1
-      `
-    : await sql<TopRow[]>`
-        SELECT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(r.id) AS rating_count,
-          AVG(r.rating) * COUNT(r.id) AS score
-        FROM articles a
-        JOIN ratings r ON r.article_id = a.id
-        WHERE r.created_at >= ${cutoff}
-        GROUP BY a.id HAVING COUNT(r.id) >= 1
-        ORDER BY score DESC LIMIT 1
-      `;
+  const scoreMap = new Map<number, { sum: number; count: number }>();
+  for (const r of periodRatings as { article_id: number; rating: number }[]) {
+    const s = scoreMap.get(r.article_id) ?? { sum: 0, count: 0 };
+    s.sum += r.rating; s.count++;
+    scoreMap.set(r.article_id, s);
+  }
 
-  if (!rows.length) return null;
-  const row = { ...rows[0], id: Number(rows[0].id) };
-  return { ...row, tags: await getArticleTags(row.id) };
+  const [bestId] = [...scoreMap.entries()]
+    .sort(([, a], [, b]) => (b.sum / b.count) * b.count - (a.sum / a.count) * a.count);
+  if (!bestId) return null;
+
+  return getArticleById(bestId[0]);
 }
 
 export async function getLatestArticles(limit = 20, offset = 0, userId?: string): Promise<Article[]> {
-  const articles: Article[] = userId
-    ? await sql<Article[]>`
-        SELECT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS rating_count,
-          MAX(CASE WHEN r.clerk_user_id = ${userId} THEN r.rating END) AS user_rating
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT ${limit} OFFSET ${offset}
-      `
-    : await sql<Article[]>`
-        SELECT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS rating_count,
-          MAX(r.rating) AS user_rating
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT ${limit} OFFSET ${offset}
-      `;
+  const { data: raw } = await db
+    .from('articles')
+    .select('*')
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .range(offset, offset + limit - 1);
 
-  if (articles.length === 0) return [];
-  const ids = articles.map(a => Number(a.id));
-  const tagRows = await sql<{ article_id: number; id: number; name: string; color: string }[]>`
-    SELECT at.article_id, t.id, t.name, t.color
-    FROM article_tags at JOIN tags t ON t.id = at.tag_id
-    WHERE at.article_id = ANY(${sql.array(ids)})
-  `;
-  const tagMap = new Map<number, { id: number; name: string; color: string }[]>();
-  for (const r of tagRows) {
-    const aid = Number(r.article_id);
-    if (!tagMap.has(aid)) tagMap.set(aid, []);
-    tagMap.get(aid)!.push({ id: Number(r.id), name: r.name, color: r.color });
-  }
-  return articles.map(a => ({ ...a, id: Number(a.id), tags: tagMap.get(Number(a.id)) || [] }));
+  const articles = (raw ?? []) as Article[];
+  const ids = articles.map(a => a.id);
+  const [tagMap, ratings] = await Promise.all([fetchTagsForIds(ids), fetchRatingsForIds(ids)]);
+  const agg = aggregateRatings(ratings, userId);
+
+  return articles.map(a => ({
+    ...a,
+    tags: tagMap.get(a.id) ?? [],
+    avg_rating: agg.avgRating(a.id),
+    rating_count: agg.ratingCount(a.id),
+    user_rating: agg.userRating(a.id) ?? undefined,
+  }));
 }
 
 export async function getArticleById(id: number): Promise<Article | null> {
-  const rows = await sql<Article[]>`
-    SELECT a.*, AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS rating_count
-    FROM articles a LEFT JOIN ratings r ON r.article_id = a.id
-    WHERE a.id = ${id} GROUP BY a.id
-  `;
-  if (!rows.length) return null;
-  const article = { ...rows[0], id: Number(rows[0].id) };
-  return { ...article, tags: await getArticleTags(id) };
+  const { data } = await db.from('articles').select('*').eq('id', id).single();
+  if (!data) return null;
+  const [tags, ratings] = await Promise.all([
+    fetchTagsForIds([id]),
+    fetchRatingsForIds([id]),
+  ]);
+  const agg = aggregateRatings(ratings);
+  return {
+    ...(data as Article),
+    tags: tags.get(id) ?? [],
+    avg_rating: agg.avgRating(id),
+    rating_count: agg.ratingCount(id),
+  };
 }
 
 export async function getArticleTags(articleId: number): Promise<Tag[]> {
-  const rows = await sql<Tag[]>`
-    SELECT t.id, t.name, t.color FROM tags t
-    JOIN article_tags at ON at.tag_id = t.id WHERE at.article_id = ${articleId}
-  `;
-  return rows.map(r => ({ ...r, id: Number(r.id) }));
+  return (await fetchTagsForIds([articleId])).get(articleId) ?? [];
 }
 
 export async function rateArticle(articleId: number, rating: number, userId?: string): Promise<void> {
-  if (userId) {
-    const existing = await sql`SELECT id FROM ratings WHERE article_id = ${articleId} AND clerk_user_id = ${userId}`;
-    if (existing.length) {
-      await sql`UPDATE ratings SET rating = ${rating}, created_at = NOW() WHERE article_id = ${articleId} AND clerk_user_id = ${userId}`;
-    } else {
-      await sql`INSERT INTO ratings (article_id, rating, clerk_user_id) VALUES (${articleId}, ${rating}, ${userId})`;
-    }
+  const match = userId
+    ? { article_id: articleId, clerk_user_id: userId }
+    : { article_id: articleId, clerk_user_id: null as null };
+
+  const { data: existing } = await db.from('ratings').select('id').match(match).maybeSingle();
+  if (existing) {
+    await db.from('ratings').update({ rating, created_at: new Date().toISOString() }).eq('id', existing.id);
   } else {
-    const existing = await sql`SELECT id FROM ratings WHERE article_id = ${articleId} AND clerk_user_id IS NULL`;
-    if (existing.length) {
-      await sql`UPDATE ratings SET rating = ${rating}, created_at = NOW() WHERE article_id = ${articleId} AND clerk_user_id IS NULL`;
-    } else {
-      await sql`INSERT INTO ratings (article_id, rating, clerk_user_id) VALUES (${articleId}, ${rating}, NULL)`;
-    }
+    await db.from('ratings').insert({ article_id: articleId, rating, clerk_user_id: userId ?? null });
   }
 }
 
 export async function getUserRating(articleId: number, userId?: string): Promise<number | null> {
-  const rows = userId
-    ? await sql<{ rating: number }[]>`SELECT rating FROM ratings WHERE article_id = ${articleId} AND clerk_user_id = ${userId}`
-    : await sql<{ rating: number }[]>`SELECT rating FROM ratings WHERE article_id = ${articleId} AND clerk_user_id IS NULL`;
-  return rows[0]?.rating ?? null;
+  const match = userId
+    ? { article_id: articleId, clerk_user_id: userId }
+    : { article_id: articleId, clerk_user_id: null as null };
+  const { data } = await db.from('ratings').select('rating').match(match).maybeSingle();
+  return (data as { rating: number } | null)?.rating ?? null;
 }
 
 export async function isBookmarked(articleId: number, userId: string): Promise<boolean> {
-  const rows = await sql`SELECT 1 FROM bookmarks WHERE clerk_user_id = ${userId} AND article_id = ${articleId}`;
-  return rows.length > 0;
+  const { data } = await db.from('bookmarks').select('article_id').match({ clerk_user_id: userId, article_id: articleId }).maybeSingle();
+  return !!data;
 }
 
 export async function setBookmark(articleId: number, userId: string, value: boolean): Promise<void> {
   if (value) {
-    await sql`INSERT INTO bookmarks (clerk_user_id, article_id) VALUES (${userId}, ${articleId}) ON CONFLICT DO NOTHING`;
+    await db.from('bookmarks').upsert({ clerk_user_id: userId, article_id: articleId }, { onConflict: 'clerk_user_id,article_id', ignoreDuplicates: true });
   } else {
-    await sql`DELETE FROM bookmarks WHERE clerk_user_id = ${userId} AND article_id = ${articleId}`;
+    await db.from('bookmarks').delete().match({ clerk_user_id: userId, article_id: articleId });
   }
 }
 
 export async function searchArticles(query: string, tagFilter?: string): Promise<Article[]> {
-  const like = `%${query}%`;
-  const articles: Article[] = tagFilter
-    ? await sql<Article[]>`
-        SELECT DISTINCT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS rating_count
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id
-        LEFT JOIN article_tags at2 ON at2.article_id = a.id
-        LEFT JOIN tags t2 ON t2.id = at2.tag_id
-        WHERE (a.title ILIKE ${like} OR a.summary ILIKE ${like} OR a.source ILIKE ${like})
-          AND t2.name = ${tagFilter}
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT 50
-      `
-    : await sql<Article[]>`
-        SELECT DISTINCT a.id, a.title, a.url, a.summary, a.source, a.author,
-          a.image_url, a.published_at, a.scraped_at,
-          AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS rating_count
-        FROM articles a
-        LEFT JOIN ratings r ON r.article_id = a.id
-        WHERE (a.title ILIKE ${like} OR a.summary ILIKE ${like} OR a.source ILIKE ${like})
-        GROUP BY a.id ORDER BY a.published_at DESC NULLS LAST LIMIT 50
-      `;
+  let q = db.from('articles').select('*').ilike('title', `%${query}%`).limit(50);
+  const { data: raw } = await q;
 
-  if (articles.length === 0) return [];
-  const ids = articles.map(a => Number(a.id));
-  const tagRows = await sql<{ article_id: number; id: number; name: string; color: string }[]>`
-    SELECT at.article_id, t.id, t.name, t.color
-    FROM article_tags at JOIN tags t ON t.id = at.tag_id
-    WHERE at.article_id = ANY(${sql.array(ids)})
-  `;
-  const tagMap = new Map<number, { id: number; name: string; color: string }[]>();
-  for (const r of tagRows) {
-    const aid = Number(r.article_id);
-    if (!tagMap.has(aid)) tagMap.set(aid, []);
-    tagMap.get(aid)!.push({ id: Number(r.id), name: r.name, color: r.color });
+  let articles = (raw ?? []) as Article[];
+
+  // Summary fallback search
+  if (articles.length < 50) {
+    const { data: bySummary } = await db.from('articles').select('*').ilike('summary', `%${query}%`).limit(50 - articles.length);
+    const existingIds = new Set(articles.map(a => a.id));
+    for (const a of (bySummary ?? []) as Article[]) {
+      if (!existingIds.has(a.id)) articles.push(a);
+    }
   }
-  return articles.map(a => ({ ...a, id: Number(a.id), tags: tagMap.get(Number(a.id)) || [] }));
+
+  if (tagFilter) {
+    const { data: tagRows } = await db.from('tags').select('id').eq('name', tagFilter).maybeSingle();
+    if (tagRows) {
+      const { data: links } = await db.from('article_tags').select('article_id').eq('tag_id', (tagRows as { id: number }).id);
+      const taggedIds = new Set((links ?? []).map((l: { article_id: number }) => l.article_id));
+      articles = articles.filter(a => taggedIds.has(a.id));
+    }
+  }
+
+  const ids = articles.map(a => a.id);
+  const tagMap = await fetchTagsForIds(ids);
+  return articles.map(a => ({ ...a, tags: tagMap.get(a.id) ?? [] }));
 }

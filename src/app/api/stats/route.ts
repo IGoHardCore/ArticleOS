@@ -1,37 +1,37 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { getTagWeights } from '@/lib/recommendations';
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [{ c: totalArticles }] = await sql<{ c: number }[]>`SELECT COUNT(*) as c FROM articles`;
-  const [{ c: ratedArticles }] = await sql<{ c: number }[]>`
-    SELECT COUNT(DISTINCT article_id) as c FROM ratings WHERE clerk_user_id = ${userId}
-  `;
-  const [{ avg }] = await sql<{ avg: number | null }[]>`
-    SELECT AVG(rating) as avg FROM ratings WHERE clerk_user_id = ${userId}
-  `;
-  const avgRating = Number(avg) || 0;
+  const [
+    { count: totalArticles },
+    { data: userRatingsData },
+  ] = await Promise.all([
+    db.from('articles').select('*', { count: 'exact', head: true }),
+    db.from('ratings').select('article_id, rating').eq('clerk_user_id', userId),
+  ]);
 
-  const topTags = await sql<{ name: string; color: string; count: number; avg_rating: number }[]>`
-    SELECT t.name, t.color,
-      COUNT(DISTINCT r.article_id) as count,
-      AVG(r.rating) as avg_rating
-    FROM tags t
-    JOIN article_tags at ON at.tag_id = t.id
-    JOIN ratings r ON r.article_id = at.article_id
-    WHERE r.clerk_user_id = ${userId}
-    GROUP BY t.id, t.name, t.color
-    ORDER BY avg_rating DESC, count DESC
-    LIMIT 10
-  `;
+  const ratings = (userRatingsData ?? []) as { article_id: number; rating: number }[];
+  const ratedArticles = new Set(ratings.map(r => r.article_id)).size;
+  const avgRating = ratings.length ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length : 0;
+
+  // Top tags by average rating
+  const weights = await getTagWeights(userId);
+  const topTags = weights.slice(0, 10).map(w => ({
+    name: w.tag_name,
+    color: '#6366f1',
+    count: 1,
+    avg_rating: w.weight,
+  }));
 
   return NextResponse.json({
-    totalArticles: Number(totalArticles),
-    ratedArticles: Number(ratedArticles),
+    totalArticles: totalArticles ?? 0,
+    ratedArticles,
     avgRating,
-    topTags: topTags.map(t => ({ ...t, count: Number(t.count), avg_rating: Number(t.avg_rating) })),
+    topTags,
   });
 }

@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Mistral } from '@mistralai/mistralai';
-import { sql } from './db';
+import { db } from './db';
 
 // ── Provider detection ────────────────────────────────────────────────────────
 
@@ -9,13 +9,11 @@ type Provider = 'mistral' | 'google';
 async function getProviderConfig(userId?: string): Promise<{ provider: Provider; key: string }> {
   const get = async (k: string): Promise<string> => {
     if (userId) {
-      const rows = await sql<{ value: string }[]>`
-        SELECT value FROM user_settings WHERE clerk_user_id = ${userId} AND key = ${k}
-      `;
-      if (rows[0]?.value) return rows[0].value;
+      const { data } = await db.from('user_settings').select('value').match({ clerk_user_id: userId, key: k }).maybeSingle();
+      if ((data as { value: string } | null)?.value) return (data as { value: string }).value;
     }
-    const rows = await sql<{ value: string }[]>`SELECT value FROM settings WHERE key = ${k}`;
-    return rows[0]?.value || '';
+    const { data } = await db.from('settings').select('value').eq('key', k).maybeSingle();
+    return (data as { value: string } | null)?.value || '';
   };
 
   const mistralKey = await get('mistral_api_key') || process.env.MISTRAL_API_KEY || '';
@@ -275,26 +273,28 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): 
 }
 
 export async function processUnanalyzedArticles(limit = 10): Promise<number> {
-  const articles = await sql<{ id: number; title: string; full_text: string; summary: string }[]>`
-    SELECT id, title, full_text, summary FROM articles
-    WHERE summary IS NULL OR summary = '' LIMIT ${limit}
-  `;
+  const { data: articlesData } = await db
+    .from('articles')
+    .select('id, title, full_text, summary')
+    .or('summary.is.null,summary.eq.')
+    .limit(limit);
 
+  const articles = (articlesData ?? []) as { id: number; title: string; full_text: string | null; summary: string | null }[];
   let processed = 0;
 
   for (const article of articles) {
     try {
       const result = await withRetry(() => analyzeArticle(article.title, article.full_text || article.title));
       if (result.summary) {
-        await sql`UPDATE articles SET summary = ${result.summary} WHERE id = ${article.id}`;
+        await db.from('articles').update({ summary: result.summary }).eq('id', article.id);
       }
       for (const tagName of result.tags) {
-        const tags = await sql<{ id: number }[]>`SELECT id FROM tags WHERE name = ${tagName}`;
-        if (tags.length) {
-          await sql`
-            INSERT INTO article_tags (article_id, tag_id) VALUES (${article.id}, ${tags[0].id})
-            ON CONFLICT DO NOTHING
-          `;
+        const { data: tagRow } = await db.from('tags').select('id').eq('name', tagName).maybeSingle();
+        if (tagRow) {
+          await db.from('article_tags').upsert(
+            { article_id: article.id, tag_id: (tagRow as { id: number }).id },
+            { onConflict: 'article_id,tag_id', ignoreDuplicates: true }
+          );
         }
       }
       processed++;

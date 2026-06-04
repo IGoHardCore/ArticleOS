@@ -1,5 +1,5 @@
 import Parser from 'rss-parser';
-import { sql } from './db';
+import { db } from './db';
 
 const parser = new Parser({
   timeout: 15000,
@@ -56,18 +56,24 @@ export async function scrapeFeeds(): Promise<{ added: number; skipped: number; e
         const imageUrl = extractImageUrl(item);
         const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : null;
 
-        const rows = await sql`
-          INSERT INTO articles (title, url, summary, source, author, image_url, published_at, full_text)
-          VALUES (
-            ${item.title.trim()}, ${item.link}, ${null},
-            ${feed.name}, ${item.creator || item.author || null},
-            ${imageUrl}, ${publishedAt}, ${fullText || null}
-          )
-          ON CONFLICT (url) DO NOTHING
-          RETURNING id
-        `;
-        if (rows.length > 0) added++;
-        else skipped++;
+        const { data, error } = await db.from('articles').insert({
+          title: item.title.trim(),
+          url: item.link,
+          summary: null,
+          source: feed.name,
+          author: item.creator || item.author || null,
+          image_url: imageUrl,
+          published_at: publishedAt,
+          full_text: fullText || null,
+        }).select('id');
+        if (error) {
+          if (error.code === '23505') skipped++; // unique URL violation
+          else errors.push(`${feed.name}: ${error.message}`);
+        } else if (data?.length) {
+          added++;
+        } else {
+          skipped++;
+        }
       }
     } catch (err) {
       errors.push(`${feed.name}: ${err instanceof Error ? err.message : String(err)}`);

@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS user_settings (
   PRIMARY KEY (clerk_user_id, key)
 );
 
+-- Disable RLS (app uses Clerk for auth, not Supabase Auth)
+ALTER TABLE articles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tags DISABLE ROW LEVEL SECURITY;
+ALTER TABLE article_tags DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ratings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE research_notes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE bookmarks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings DISABLE ROW LEVEL SECURITY;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ratings_article ON ratings(article_id);

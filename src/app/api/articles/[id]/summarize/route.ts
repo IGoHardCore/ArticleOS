@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
 import { analyzeArticle } from '@/lib/ai';
 import { checkRateLimit } from '@/lib/ratelimit';
 
@@ -37,22 +37,27 @@ export async function POST(
   const numId = parseInt(id);
   if (isNaN(numId) || numId <= 0) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-  const rows = await sql<{ id: number; title: string; full_text: string | null; summary: string | null }[]>`
-    SELECT id, title, full_text, summary FROM articles WHERE id = ${numId}
-  `;
-  if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const article = rows[0];
+  const { data: articleData } = await db
+    .from('articles')
+    .select('id, title, full_text, summary')
+    .eq('id', numId)
+    .maybeSingle();
+  if (!articleData) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const article = articleData as { id: number; title: string; full_text: string | null; summary: string | null };
   if (article.summary) return NextResponse.json({ summary: article.summary });
 
   try {
     const result = await analyzeWithRetry(article.title, article.full_text || article.title);
     if (result.summary) {
-      await sql`UPDATE articles SET summary = ${result.summary} WHERE id = ${numId}`;
+      await db.from('articles').update({ summary: result.summary }).eq('id', numId);
     }
     for (const tagName of result.tags) {
-      const tags = await sql<{ id: number }[]>`SELECT id FROM tags WHERE name = ${tagName}`;
-      if (tags.length) {
-        await sql`INSERT INTO article_tags (article_id, tag_id) VALUES (${numId}, ${tags[0].id}) ON CONFLICT DO NOTHING`;
+      const { data: tagRow } = await db.from('tags').select('id').eq('name', tagName).maybeSingle();
+      if (tagRow) {
+        await db.from('article_tags').upsert(
+          { article_id: numId, tag_id: (tagRow as { id: number }).id },
+          { onConflict: 'article_id,tag_id', ignoreDuplicates: true }
+        );
       }
     }
     return NextResponse.json({ summary: result.summary, tags: result.tags });

@@ -1,45 +1,49 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { sql } from '@/lib/db';
-import { Article, Tag } from '@/lib/db';
+import { db, Article, Tag } from '@/lib/db';
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const articles = await sql<(Article & { user_rating?: number })[]>`
-    SELECT a.*, r.rating as user_rating
-    FROM articles a
-    JOIN bookmarks b ON b.article_id = a.id
-    LEFT JOIN (
-      SELECT article_id, MAX(rating) as rating FROM ratings
-      WHERE clerk_user_id = ${userId} GROUP BY article_id
-    ) r ON r.article_id = a.id
-    WHERE b.clerk_user_id = ${userId}
-    ORDER BY b.created_at DESC
-  `;
+  const { data: bookmarkData } = await db
+    .from('bookmarks')
+    .select('article_id, created_at')
+    .eq('clerk_user_id', userId)
+    .order('created_at', { ascending: false });
 
-  const ids = articles.map(a => Number(a.id));
-  const tagRows = ids.length > 0
-    ? await sql<{ article_id: number; id: number; name: string; color: string }[]>`
-        SELECT at.article_id, t.id, t.name, t.color FROM tags t
-        JOIN article_tags at ON at.tag_id = t.id
-        WHERE at.article_id = ANY(${sql.array(ids)})
-      `
-    : [];
+  const ids = (bookmarkData ?? []).map((b: { article_id: number }) => b.article_id);
+  if (!ids.length) return NextResponse.json({ articles: [] });
+
+  const [{ data: articlesData }, { data: tagLinks }, { data: ratingsData }] = await Promise.all([
+    db.from('articles').select('*').in('id', ids),
+    db.from('article_tags').select('article_id, tags(id, name, color)').in('article_id', ids),
+    db.from('ratings').select('article_id, rating').eq('clerk_user_id', userId).in('article_id', ids),
+  ]);
+
   const tagMap = new Map<number, Tag[]>();
-  for (const r of tagRows) {
-    const aid = Number(r.article_id);
-    if (!tagMap.has(aid)) tagMap.set(aid, []);
-    tagMap.get(aid)!.push({ id: Number(r.id), name: r.name, color: r.color });
+  for (const row of tagLinks ?? []) {
+    const t = (row as { article_id: number; tags: unknown }).tags as Tag;
+    if (!t) continue;
+    const arr = tagMap.get((row as { article_id: number }).article_id) ?? [];
+    arr.push(t);
+    tagMap.set((row as { article_id: number }).article_id, arr);
   }
 
-  const result = articles.map(a => ({
-    ...a,
-    id: Number(a.id),
-    bookmarked: 1,
-    tags: tagMap.get(Number(a.id)) || [],
-  }));
+  const ratingMap = new Map<number, number>();
+  for (const r of (ratingsData ?? []) as { article_id: number; rating: number }[]) {
+    ratingMap.set(r.article_id, r.rating);
+  }
+
+  // Preserve bookmark order
+  const articleMap = new Map<number, Article>((articlesData ?? []).map((a: Article) => [a.id, a]));
+  const result = ids
+    .map(id => {
+      const a = articleMap.get(id);
+      if (!a) return null;
+      return { ...a, bookmarked: 1, tags: tagMap.get(id) ?? [], user_rating: ratingMap.get(id) };
+    })
+    .filter(Boolean);
 
   return NextResponse.json({ articles: result });
 }
