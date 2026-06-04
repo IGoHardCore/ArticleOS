@@ -1,25 +1,23 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { generateChatStream } from '@/lib/ai';
-import { getDb } from '@/lib/db';
+import { sql } from '@/lib/db';
 import { checkRateLimit } from '@/lib/ratelimit';
 
 const MAX_MESSAGE_LENGTH = 8000;
-// 20 AI chat requests per user per minute
 const CHAT_RATE_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
-function buildArticleContext(userId: string): string {
+async function buildArticleContext(userId: string): Promise<string> {
   try {
-    const db = getDb();
-    const articles = db.prepare(`
+    const articles = await sql<{ title: string; source: string | null; summary: string | null; rating: number | null }[]>`
       SELECT DISTINCT a.title, a.source, a.summary, r.rating
       FROM articles a
-      LEFT JOIN ratings r ON r.article_id = a.id AND r.clerk_user_id = ?
-      LEFT JOIN bookmarks b ON b.article_id = a.id AND b.clerk_user_id = ?
+      LEFT JOIN ratings r ON r.article_id = a.id AND r.clerk_user_id = ${userId}
+      LEFT JOIN bookmarks b ON b.article_id = a.id AND b.clerk_user_id = ${userId}
       WHERE b.clerk_user_id IS NOT NULL OR r.rating >= 3
-      ORDER BY r.rating DESC, a.published_at DESC
+      ORDER BY r.rating DESC NULLS LAST, a.published_at DESC NULLS LAST
       LIMIT 20
-    `).all(userId, userId) as Array<{ title: string; source: string | null; summary: string | null; rating: number | null }>;
+    `;
 
     if (!articles.length) return '';
     return articles.map(a => {
@@ -49,11 +47,10 @@ export async function POST(req: NextRequest) {
   if (message.length > MAX_MESSAGE_LENGTH) {
     return new Response(JSON.stringify({ error: 'Message too long' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  // Limit history depth to prevent prompt-stuffing attacks
   const trimmedHistory = Array.isArray(history) ? history.slice(-20) : [];
 
   try {
-    const articleContext = buildArticleContext(userId);
+    const articleContext = await buildArticleContext(userId);
     const stream = await generateChatStream(message, trimmedHistory, articleContext, userId);
 
     const readable = new ReadableStream({

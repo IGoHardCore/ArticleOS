@@ -1,25 +1,25 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Mistral } from '@mistralai/mistralai';
-import { getDb } from './db';
+import { sql } from './db';
 
 // ── Provider detection ────────────────────────────────────────────────────────
 
 type Provider = 'mistral' | 'google';
 
-function getProviderConfig(userId?: string): { provider: Provider; key: string } {
-  const db = getDb();
-  const get = (k: string) => {
-    // Per-user key first, then global fallback, then env var
+async function getProviderConfig(userId?: string): Promise<{ provider: Provider; key: string }> {
+  const get = async (k: string): Promise<string> => {
     if (userId) {
-      const userRow = db.prepare('SELECT value FROM user_settings WHERE clerk_user_id = ? AND key = ?').get(userId, k) as { value: string } | undefined;
-      if (userRow?.value) return userRow.value;
+      const rows = await sql<{ value: string }[]>`
+        SELECT value FROM user_settings WHERE clerk_user_id = ${userId} AND key = ${k}
+      `;
+      if (rows[0]?.value) return rows[0].value;
     }
-    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(k) as { value: string } | undefined;
-    return row?.value || '';
+    const rows = await sql<{ value: string }[]>`SELECT value FROM settings WHERE key = ${k}`;
+    return rows[0]?.value || '';
   };
 
-  const mistralKey = get('mistral_api_key') || process.env.MISTRAL_API_KEY || '';
-  const googleKey  = get('api_key')         || process.env.GOOGLE_API_KEY  || '';
+  const mistralKey = await get('mistral_api_key') || process.env.MISTRAL_API_KEY || '';
+  const googleKey  = await get('api_key')         || process.env.GOOGLE_API_KEY  || '';
 
   if (mistralKey) return { provider: 'mistral', key: mistralKey };
   if (googleKey)  return { provider: 'google',  key: googleKey };
@@ -149,7 +149,7 @@ async function* googleChatStream(
 // ── Public API ────────────────────────────────────────────────────────────────
 
 async function generateText(prompt: string, userId?: string): Promise<string> {
-  const { provider, key } = getProviderConfig(userId);
+  const { provider, key } = await getProviderConfig(userId);
   if (provider === 'mistral') return mistralGenerateText(key, prompt);
   return googleGenerateText(key, prompt);
 }
@@ -160,7 +160,7 @@ export async function generateChat(
   articleContext?: string,
   userId?: string
 ): Promise<string> {
-  const { provider, key } = getProviderConfig(userId);
+  const { provider, key } = await getProviderConfig(userId);
   if (provider === 'mistral') return mistralChat(key, message, history, articleContext);
 
   const mappedHistory = history.map(m => ({
@@ -188,7 +188,7 @@ export async function generateChatStream(
   articleContext?: string,
   userId?: string
 ): Promise<AsyncIterable<string>> {
-  const { provider, key } = getProviderConfig(userId);
+  const { provider, key } = await getProviderConfig(userId);
   if (provider === 'mistral') return mistralChatStream(key, message, history, articleContext);
   return googleChatStream(key, message, history, articleContext);
 }
@@ -275,24 +275,27 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): 
 }
 
 export async function processUnanalyzedArticles(limit = 10): Promise<number> {
-  const db = getDb();
-  const articles = db
-    .prepare(`SELECT id, title, full_text, summary FROM articles WHERE summary IS NULL OR summary = '' LIMIT ?`)
-    .all(limit) as Array<{ id: number; title: string; full_text: string; summary: string }>;
-
-  const getTags = db.prepare(`SELECT t.id FROM tags t WHERE t.name = ?`);
-  const insertTag = db.prepare(`INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)`);
-  const updateSummary = db.prepare(`UPDATE articles SET summary = ? WHERE id = ?`);
+  const articles = await sql<{ id: number; title: string; full_text: string; summary: string }[]>`
+    SELECT id, title, full_text, summary FROM articles
+    WHERE summary IS NULL OR summary = '' LIMIT ${limit}
+  `;
 
   let processed = 0;
 
   for (const article of articles) {
     try {
       const result = await withRetry(() => analyzeArticle(article.title, article.full_text || article.title));
-      if (result.summary) updateSummary.run(result.summary, article.id);
+      if (result.summary) {
+        await sql`UPDATE articles SET summary = ${result.summary} WHERE id = ${article.id}`;
+      }
       for (const tagName of result.tags) {
-        const tag = getTags.get(tagName) as { id: number } | undefined;
-        if (tag) insertTag.run(article.id, tag.id);
+        const tags = await sql<{ id: number }[]>`SELECT id FROM tags WHERE name = ${tagName}`;
+        if (tags.length) {
+          await sql`
+            INSERT INTO article_tags (article_id, tag_id) VALUES (${article.id}, ${tags[0].id})
+            ON CONFLICT DO NOTHING
+          `;
+        }
       }
       processed++;
       if (processed < articles.length) await new Promise(r => setTimeout(r, 2000));

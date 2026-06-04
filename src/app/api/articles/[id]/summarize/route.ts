@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getDb } from '@/lib/db';
+import { sql } from '@/lib/db';
 import { analyzeArticle } from '@/lib/ai';
 import { checkRateLimit } from '@/lib/ratelimit';
 
-// 10 summarizations per user per minute (each burns one AI API call)
 const SUMMARIZE_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
 async function analyzeWithRetry(title: string, text: string, attempts = 4) {
@@ -38,21 +37,23 @@ export async function POST(
   const numId = parseInt(id);
   if (isNaN(numId) || numId <= 0) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-  const db = getDb();
-  const article = db.prepare('SELECT id, title, full_text, summary FROM articles WHERE id = ?').get(numId) as
-    { id: number; title: string; full_text: string | null; summary: string | null } | undefined;
-
-  if (!article) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const rows = await sql<{ id: number; title: string; full_text: string | null; summary: string | null }[]>`
+    SELECT id, title, full_text, summary FROM articles WHERE id = ${numId}
+  `;
+  if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  const article = rows[0];
   if (article.summary) return NextResponse.json({ summary: article.summary });
 
   try {
     const result = await analyzeWithRetry(article.title, article.full_text || article.title);
     if (result.summary) {
-      db.prepare('UPDATE articles SET summary = ? WHERE id = ?').run(result.summary, numId);
+      await sql`UPDATE articles SET summary = ${result.summary} WHERE id = ${numId}`;
     }
     for (const tagName of result.tags) {
-      const tag = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName) as { id: number } | undefined;
-      if (tag) db.prepare('INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)').run(numId, tag.id);
+      const tags = await sql<{ id: number }[]>`SELECT id FROM tags WHERE name = ${tagName}`;
+      if (tags.length) {
+        await sql`INSERT INTO article_tags (article_id, tag_id) VALUES (${numId}, ${tags[0].id}) ON CONFLICT DO NOTHING`;
+      }
     }
     return NextResponse.json({ summary: result.summary, tags: result.tags });
   } catch (err) {

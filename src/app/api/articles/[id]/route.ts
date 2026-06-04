@@ -11,11 +11,11 @@ export async function GET(
   const numId = parseInt(id);
   if (isNaN(numId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-  const article = getArticleById(numId);
+  const article = await getArticleById(numId);
   if (!article) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const userRating = getUserRating(numId, userId ?? undefined);
-  const bookmarked = userId ? isBookmarked(numId, userId) : false;
+  const userRating = await getUserRating(numId, userId ?? undefined);
+  const bookmarked = userId ? await isBookmarked(numId, userId) : false;
   return NextResponse.json({ article: { ...article, user_rating: userRating, bookmarked: bookmarked ? 1 : 0 } });
 }
 
@@ -33,7 +33,7 @@ export async function POST(
   const body = await req.json();
 
   if (typeof body.bookmarked === 'boolean') {
-    setBookmark(numId, userId, body.bookmarked);
+    await setBookmark(numId, userId, body.bookmarked);
     return NextResponse.json({ success: true });
   }
 
@@ -42,8 +42,8 @@ export async function POST(
     return NextResponse.json({ error: 'Rating must be 1-5' }, { status: 400 });
   }
 
-  rateArticle(numId, rating, userId);
-  if (rating === 5) setBookmark(numId, userId, true);
+  await rateArticle(numId, rating, userId);
+  if (rating === 5) await setBookmark(numId, userId, true);
 
-  return NextResponse.json({ success: true, article: getArticleById(numId) });
+  return NextResponse.json({ success: true, article: await getArticleById(numId) });
 }

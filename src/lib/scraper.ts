@@ -1,5 +1,5 @@
 import Parser from 'rss-parser';
-import { getDb } from './db';
+import { sql } from './db';
 
 const parser = new Parser({
   timeout: 15000,
@@ -41,39 +41,32 @@ export interface ScrapedArticle {
 }
 
 export async function scrapeFeeds(): Promise<{ added: number; skipped: number; errors: string[] }> {
-  const db = getDb();
   let added = 0;
   let skipped = 0;
   const errors: string[] = [];
-
-  const insertArticle = db.prepare(`
-    INSERT OR IGNORE INTO articles (title, url, summary, source, author, image_url, published_at, full_text)
-    VALUES (@title, @url, @summary, @source, @author, @image_url, @published_at, @full_text)
-  `);
 
   for (const feed of FEEDS) {
     try {
       const parsed = await parser.parseURL(feed.url);
       for (const item of parsed.items.slice(0, 20)) {
         if (!item.title || !item.link) continue;
-        // Combine all available text into full_text so the AI has maximum context.
-        // summary is left NULL so processUnanalyzedArticles always generates an AI summary.
         const rssSnippet = stripHtml(item.contentSnippet || item.summary || '');
         const rssContent = stripHtml(item.content || item['content:encoded'] || '');
         const fullText = rssContent.length > rssSnippet.length ? rssContent : rssSnippet;
         const imageUrl = extractImageUrl(item);
         const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : null;
-        const result = insertArticle.run({
-          title: item.title.trim(),
-          url: item.link,
-          summary: null,
-          source: feed.name,
-          author: item.creator || item.author || null,
-          image_url: imageUrl,
-          published_at: publishedAt,
-          full_text: fullText || null,
-        });
-        if (result.changes > 0) added++;
+
+        const rows = await sql`
+          INSERT INTO articles (title, url, summary, source, author, image_url, published_at, full_text)
+          VALUES (
+            ${item.title.trim()}, ${item.link}, ${null},
+            ${feed.name}, ${item.creator || item.author || null},
+            ${imageUrl}, ${publishedAt}, ${fullText || null}
+          )
+          ON CONFLICT (url) DO NOTHING
+          RETURNING id
+        `;
+        if (rows.length > 0) added++;
         else skipped++;
       }
     } catch (err) {
