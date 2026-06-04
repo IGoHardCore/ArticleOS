@@ -108,3 +108,15 @@ INSERT INTO tags (name, color) VALUES
   ('research', '#7c3aed'),
   ('public health', '#059669')
 ON CONFLICT (name) DO NOTHING;
+
+-- ── Chat sessions (persistent AI conversation history) ────────────────────────
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_user_id TEXT      NOT NULL,
+  title       TEXT        NOT NULL DEFAULT 'New Chat',
+  messages    JSONB       NOT NULL DEFAULT '[]',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_sessions_user_idx ON chat_sessions (clerk_user_id, updated_at DESC);
+ALTER TABLE chat_sessions DISABLE ROW LEVEL SECURITY;
