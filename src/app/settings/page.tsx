@@ -110,7 +110,8 @@ export default function SettingsPage() {
         if (d.api_key_hint) setGoogleHint(d.api_key_hint);
         setActiveProvider(d.active_provider ?? null);
 
-        // Restore from localStorage if DB was wiped
+        // Migrate old localStorage keys (one-time: move to DB, then remove)
+        // Using sessionStorage going forward — never persist raw keys in localStorage
         const cachedMistral = localStorage.getItem('articleos_mistral_key');
         const cachedGoogle  = localStorage.getItem('articleos_api_key');
         const toRestore: Record<string, string> = {};
@@ -119,34 +120,33 @@ export default function SettingsPage() {
         if (Object.keys(toRestore).length) {
           await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toRestore) });
           setActiveProvider(toRestore.mistral_api_key ? 'mistral' : 'google');
+          // Remove plaintext keys from localStorage now that they're in the DB
+          localStorage.removeItem('articleos_mistral_key');
+          localStorage.removeItem('articleos_api_key');
         }
       });
   }, []);
 
   async function saveMistral(key: string) {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mistral_api_key: key }) });
-    localStorage.setItem('articleos_mistral_key', key);
     setMistralHint('••••' + key.slice(-4));
     setActiveProvider('mistral');
   }
 
   async function clearMistral() {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mistral_api_key: '' }) });
-    localStorage.removeItem('articleos_mistral_key');
     setMistralHint('');
     setActiveProvider(googleHint ? 'google' : null);
   }
 
   async function saveGoogle(key: string) {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: key }) });
-    localStorage.setItem('articleos_api_key', key);
     setGoogleHint('••••' + key.slice(-4));
     if (!mistralHint) setActiveProvider('google');
   }
 
   async function clearGoogle() {
     await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: '' }) });
-    localStorage.removeItem('articleos_api_key');
     setGoogleHint('');
     if (!mistralHint) setActiveProvider(null);
   }

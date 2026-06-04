@@ -34,9 +34,10 @@ export async function POST(req: NextRequest) {
 
   const db = getDb();
   const body = await req.json();
+  const ALLOWED_KEYS = new Set(['api_key', 'mistral_api_key']);
   const upsert = db.prepare('INSERT OR REPLACE INTO user_settings (clerk_user_id, key, value) VALUES (?, ?, ?)');
   for (const [key, value] of Object.entries(body)) {
-    if (typeof value === 'string') upsert.run(userId, key, value);
+    if (ALLOWED_KEYS.has(key) && typeof value === 'string') upsert.run(userId, key, value);
   }
   return NextResponse.json({ success: true });
 }

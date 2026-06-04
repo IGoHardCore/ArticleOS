@@ -2,6 +2,11 @@ import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { generateChatStream } from '@/lib/ai';
 import { getDb } from '@/lib/db';
+import { checkRateLimit } from '@/lib/ratelimit';
+
+const MAX_MESSAGE_LENGTH = 8000;
+// 20 AI chat requests per user per minute
+const CHAT_RATE_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
 function buildArticleContext(userId: string): string {
   try {
@@ -31,12 +36,25 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
 
+  const { allowed, retryAfterMs } = checkRateLimit(`chat:${userId}`, CHAT_RATE_LIMIT.maxRequests, CHAT_RATE_LIMIT.windowMs);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: `Rate limit exceeded. Try again in ${Math.ceil(retryAfterMs / 1000)}s.` }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+    });
+  }
+
   const { message, history = [] } = await req.json();
   if (!message?.trim()) return new Response('Empty message', { status: 400 });
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return new Response(JSON.stringify({ error: 'Message too long' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  // Limit history depth to prevent prompt-stuffing attacks
+  const trimmedHistory = Array.isArray(history) ? history.slice(-20) : [];
 
   try {
     const articleContext = buildArticleContext(userId);
-    const stream = await generateChatStream(message, history, articleContext, userId);
+    const stream = await generateChatStream(message, trimmedHistory, articleContext, userId);
 
     const readable = new ReadableStream({
       async start(controller) {
