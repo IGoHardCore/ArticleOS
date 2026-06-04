@@ -68,7 +68,12 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_WIDTH;
+    const stored = localStorage.getItem('articleos_ai_width');
+    const n = stored ? parseInt(stored, 10) : NaN;
+    return isNaN(n) ? DEFAULT_WIDTH : Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, n));
+  });
   const [panelView, setPanelView] = useState<'chat' | 'history'>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -181,13 +186,15 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
     setTimeout(() => inputRef.current?.focus(), 100);
   }
 
-  // Drag-to-resize
+  // Drag-to-resize (shared by both overlay and inline panel)
   const startResize = useCallback((e: React.MouseEvent) => {
     isResizing.current = true;
     e.preventDefault();
     const onMove = (ev: MouseEvent) => {
       if (!isResizing.current) return;
-      setPanelWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, window.innerWidth - ev.clientX)));
+      const w = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, window.innerWidth - ev.clientX));
+      setPanelWidth(w);
+      localStorage.setItem('articleos_ai_width', String(w));
     };
     const onUp = () => {
       isResizing.current = false;
@@ -324,15 +331,27 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
         )}
       </AnimatePresence>
 
-      {/* Inline panel (controlled) */}
+      {/* Inline panel (controlled) — same resize handle as overlay */}
       {isControlled && (
         <motion.div
-          animate={{ width: open ? 400 : 0 }}
+          animate={{ width: open ? panelWidth : 0 }}
           transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-          className="flex-shrink-0 overflow-hidden border-l border-slate-100 bg-white"
+          className="flex-shrink-0 overflow-hidden border-l border-slate-100 bg-white relative"
           style={{ minWidth: 0 }}
         >
-          {open && <div className="w-[400px] h-full flex flex-col">{panelContent}</div>}
+          {open && (
+            <>
+              <div
+                onMouseDown={startResize}
+                className="absolute left-0 top-0 h-full w-3 cursor-col-resize group z-10 flex items-center justify-center"
+              >
+                <div className="h-full w-1 group-hover:bg-indigo-300/60 active:bg-indigo-400/70 transition-colors rounded-full" />
+              </div>
+              <div className="h-full flex flex-col" style={{ width: panelWidth }}>
+                {panelContent}
+              </div>
+            </>
+          )}
         </motion.div>
       )}
     </>
