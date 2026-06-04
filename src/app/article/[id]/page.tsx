@@ -106,7 +106,18 @@ export default function ArticlePage() {
                 </div>
               )}
 
-              <h1 className="text-2xl font-bold text-slate-900 mb-5 leading-tight">{article.title}</h1>
+              <h1 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">{article.title}</h1>
+
+              {article.url && (
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors mb-6"
+                >
+                  Read Full Article →
+                </a>
+              )}
 
               <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6">
                 <div className="flex items-center gap-2 mb-3">
@@ -154,16 +165,6 @@ export default function ArticlePage() {
                 </div>
               )}
 
-              {article.url && (
-                <a
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors mb-6"
-                >
-                  Read Full Article →
-                </a>
-              )}
             </article>
           )}
         </div>
