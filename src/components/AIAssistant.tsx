@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, Send, Loader2, Trash2 } from 'lucide-react';
 
@@ -15,6 +15,10 @@ const STARTERS = [
   'What questions should I be asking about my top topics?',
   'What are the gaps or controversies in what I\'ve been studying?',
 ];
+
+const MIN_WIDTH = 300;
+const MAX_WIDTH = 720;
+const DEFAULT_WIDTH = 400;
 
 interface AIAssistantProps {
   open?: boolean;
@@ -33,6 +37,8 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
+  const isResizing = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +55,25 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
     window.addEventListener('articleos-open-ai', handler);
     return () => window.removeEventListener('articleos-open-ai', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drag-to-resize logic
+  const startResize = useCallback((e: React.MouseEvent) => {
+    isResizing.current = true;
+    e.preventDefault();
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const newWidth = window.innerWidth - ev.clientX;
+      setPanelWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newWidth)));
+    };
+    const onUp = () => {
+      isResizing.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }, []);
 
   async function send(text?: string) {
@@ -85,7 +110,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Something went wrong';
-      setMessages(prev => prev.slice(0, -1)); // remove empty assistant bubble
+      setMessages(prev => prev.slice(0, -1));
       if (errMsg.includes('No AI API key configured') || errMsg.includes('No Google AI Studio API key')) {
         setError('No API key configured. Go to Settings to add your Mistral or Google key.');
       } else {
@@ -116,7 +141,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
         )}
       </motion.button>
 
-      {/* Backdrop — only shown in overlay (uncontrolled) mode */}
+      {/* Backdrop */}
       <AnimatePresence>
         {open && !isControlled && (
           <motion.div
@@ -131,7 +156,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
         )}
       </AnimatePresence>
 
-      {/* Panel — fixed overlay in uncontrolled mode, inline when controlled */}
+      {/* Overlay panel (uncontrolled) — resizable */}
       <AnimatePresence>
         {open && !isControlled && (
           <motion.div
@@ -140,8 +165,18 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="fixed right-0 top-0 h-screen w-full sm:w-[340px] bg-white shadow-2xl border-l border-slate-100 z-50 flex flex-col"
+            className="fixed right-0 top-0 h-screen bg-white shadow-2xl border-l border-slate-100 z-50 flex flex-col"
+            style={{ width: `min(${panelWidth}px, 100vw)` }}
           >
+            {/* Drag handle */}
+            <div
+              onMouseDown={startResize}
+              className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize group z-10"
+              title="Drag to resize"
+            >
+              <div className="h-full w-full group-hover:bg-indigo-300/40 transition-colors rounded-r" />
+            </div>
+
             <PanelContent
               messages={messages}
               input={input}
@@ -158,16 +193,16 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
         )}
       </AnimatePresence>
 
-      {/* Inline panel used when parent controls layout */}
+      {/* Inline panel (controlled layout) */}
       {isControlled && (
         <motion.div
-          animate={{ width: open ? 340 : 0 }}
+          animate={{ width: open ? 400 : 0 }}
           transition={{ type: 'spring', stiffness: 340, damping: 34 }}
           className="flex-shrink-0 overflow-hidden border-l border-slate-100 bg-white"
           style={{ minWidth: 0 }}
         >
           {open && (
-            <div className="w-[340px] h-full flex flex-col">
+            <div className="w-[400px] h-full flex flex-col">
               <PanelContent
                 messages={messages}
                 input={input}
@@ -208,7 +243,7 @@ function renderMarkdown(text: string) {
   while (i < lines.length) {
     const line = lines[i];
     if (!line.trim()) { i++; continue; }
-    // Numbered list item
+
     if (/^\d+\.\s/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
@@ -216,13 +251,13 @@ function renderMarkdown(text: string) {
         i++;
       }
       elements.push(
-        <ol key={i} className="list-decimal list-inside space-y-1 my-1">
-          {items.map((item, j) => <li key={j}>{formatInline(item)}</li>)}
+        <ol key={i} className="list-decimal list-outside ml-5 space-y-2 my-3">
+          {items.map((item, j) => <li key={j} className="leading-relaxed">{formatInline(item)}</li>)}
         </ol>
       );
       continue;
     }
-    // Bullet list item
+
     if (/^[-*•]\s/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^[-*•]\s/.test(lines[i])) {
@@ -230,14 +265,18 @@ function renderMarkdown(text: string) {
         i++;
       }
       elements.push(
-        <ul key={i} className="list-disc list-inside space-y-1 my-1">
-          {items.map((item, j) => <li key={j}>{formatInline(item)}</li>)}
+        <ul key={i} className="list-disc list-outside ml-5 space-y-2 my-3">
+          {items.map((item, j) => <li key={j} className="leading-relaxed">{formatInline(item)}</li>)}
         </ul>
       );
       continue;
     }
-    // Regular paragraph
-    elements.push(<p key={i} className="leading-relaxed">{formatInline(line)}</p>);
+
+    elements.push(
+      <p key={i} className="leading-[1.75] text-slate-800">
+        {formatInline(line)}
+      </p>
+    );
     i++;
   }
   return elements;
@@ -247,7 +286,7 @@ function formatInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) =>
     part.startsWith('**') && part.endsWith('**')
-      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      ? <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>
       : part
   );
 }
@@ -286,7 +325,7 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 space-y-5">
         {messages.length === 0 && (
           <div>
             <div className="text-center py-6">
@@ -312,27 +351,24 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
 
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[88%] px-3.5 py-2.5 rounded-2xl text-sm break-words overflow-hidden ${
-                m.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-tr-sm leading-relaxed'
-                  : 'bg-slate-100 text-slate-800 rounded-tl-sm space-y-1.5'
-              }`}
-            >
-              {m.role === 'user'
-                ? m.content
-                : m.content
+            {m.role === 'user' ? (
+              <div className="max-w-[82%] px-4 py-3 rounded-2xl rounded-tr-sm bg-indigo-600 text-white text-sm leading-relaxed break-words">
+                {m.content}
+              </div>
+            ) : (
+              <div className="max-w-[92%] text-sm break-words space-y-3">
+                {m.content
                   ? renderMarkdown(m.content)
-                  : <span className="opacity-40 animate-pulse">…</span>
-              }
-            </div>
+                  : <span className="text-slate-400 animate-pulse">…</span>
+                }
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Loading indicator only shown before first chunk arrives */}
         {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
-          <div className="flex justify-start -mt-2">
-            <div className="bg-slate-100 px-3.5 py-2.5 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
+          <div className="flex justify-start">
+            <div className="bg-slate-100 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -356,7 +392,7 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
             value={input}
             onChange={e => onInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-            placeholder="Ask a medical question…"
+            placeholder="Ask a question…"
             disabled={loading}
             className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all disabled:opacity-60"
           />
