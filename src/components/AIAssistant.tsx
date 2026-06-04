@@ -73,6 +73,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState('');
 
   const isResizing = useRef(false);
   const lastSavedCount = useRef(0);
@@ -131,10 +132,17 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
 
   const loadSessions = useCallback(async () => {
     setSessionsLoading(true);
+    setSessionsError('');
     try {
       const res = await fetch('/api/chat-sessions');
       const data = await res.json();
-      setSessions(data.sessions ?? []);
+      if (!res.ok || data.error) {
+        setSessionsError(data.error || 'Failed to load history');
+      } else {
+        setSessions(data.sessions ?? []);
+      }
+    } catch {
+      setSessionsError('Network error loading history');
     } finally {
       setSessionsLoading(false);
     }
@@ -246,6 +254,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
       panelView={panelView}
       sessions={sessions}
       sessionsLoading={sessionsLoading}
+      sessionsError={sessionsError}
       sessionId={sessionId}
       inputRef={inputRef}
       bottomRef={bottomRef}
@@ -306,9 +315,9 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
           >
             <div
               onMouseDown={startResize}
-              className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize group z-10"
+              className="absolute left-0 top-0 h-full w-3 cursor-col-resize group z-10 flex items-center justify-center"
             >
-              <div className="h-full w-full group-hover:bg-indigo-300/40 transition-colors" />
+              <div className="h-full w-1 group-hover:bg-indigo-300/60 active:bg-indigo-400/70 transition-colors rounded-full" />
             </div>
             {panelContent}
           </motion.div>
@@ -338,6 +347,7 @@ interface PanelContentProps {
   panelView: 'chat' | 'history';
   sessions: ChatSession[];
   sessionsLoading: boolean;
+  sessionsError: string;
   sessionId: string | null;
   inputRef: React.RefObject<HTMLInputElement | null>;
   bottomRef: React.RefObject<HTMLDivElement | null>;
@@ -399,7 +409,7 @@ function formatInline(text: string): React.ReactNode {
 }
 
 function PanelContent({
-  messages, input, loading, error, panelView, sessions, sessionsLoading,
+  messages, input, loading, error, panelView, sessions, sessionsLoading, sessionsError,
   inputRef, bottomRef, onInput, onSend, onClose, onOpenHistory,
   onCloseHistory, onLoadSession, onDeleteSession, onNewChat,
 }: PanelContentProps) {
@@ -469,11 +479,18 @@ function PanelContent({
                 <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />
               ))}
             </div>
+          ) : sessionsError ? (
+            <div className="text-center py-12 px-4">
+              <History size={28} className="mx-auto mb-2 text-red-300" />
+              <p className="text-sm text-red-500 font-medium">History unavailable</p>
+              <p className="text-xs text-slate-400 mt-1">{sessionsError}</p>
+              <p className="text-xs text-slate-400 mt-2">Make sure the <code className="bg-slate-100 px-1 rounded">chat_sessions</code> table exists in Supabase.</p>
+            </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-12">
               <History size={28} className="mx-auto mb-2 text-slate-300" />
               <p className="text-sm text-slate-400">No past chats yet</p>
-              <p className="text-xs text-slate-400 mt-1">Start a conversation and it'll appear here</p>
+              <p className="text-xs text-slate-400 mt-1">Start a conversation and it&apos;ll appear here</p>
             </div>
           ) : (
             <div className="space-y-1.5">

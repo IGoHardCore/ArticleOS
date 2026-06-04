@@ -310,7 +310,7 @@ export default function HomePage() {
         {/* ─── Feed View ─── */}
         {view === 'feed' && (
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-            <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
+            <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} externalQuery={query} />
           </div>
         )}
       <ArticleDrawer article={drawerArticle} onClose={() => setDrawerArticle(null)} />

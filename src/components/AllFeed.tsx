@@ -64,30 +64,34 @@ interface AllFeedProps {
   mode?: 'recommended' | 'latest';
   onFetch?: () => void;
   fetching?: boolean;
+  externalQuery?: string;
 }
 
-export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetching }: AllFeedProps) {
+export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetching, externalQuery }: AllFeedProps) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [layout, setLayout] = useState<'list' | 'grid'>('grid');
-  const [query, setQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce search input → query state
+  // When externalQuery is provided (controlled from parent), use it; otherwise use internal debounced state
+  const query = externalQuery !== undefined ? externalQuery : internalQuery;
+
+  // Debounce search input → internalQuery state (only used when not controlled by parent)
   function handleSearchChange(val: string) {
     setSearchInput(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setQuery(val.trim()), 350);
+    debounceRef.current = setTimeout(() => setInternalQuery(val.trim()), 350);
   }
 
   function clearSearch() {
     setSearchInput('');
-    setQuery('');
+    setInternalQuery('');
     searchRef.current?.focus();
   }
 
@@ -171,22 +175,24 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Compact search */}
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              ref={searchRef}
-              value={searchInput}
-              onChange={e => handleSearchChange(e.target.value)}
-              placeholder="Search…"
-              className="w-32 pl-7 pr-6 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
-            />
-            {searchInput && (
-              <button onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={11} />
-              </button>
-            )}
-          </div>
+          {/* Compact search — hidden when parent controls the query */}
+          {externalQuery === undefined && (
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                ref={searchRef}
+                value={searchInput}
+                onChange={e => handleSearchChange(e.target.value)}
+                placeholder="Search…"
+                className="w-32 pl-7 pr-6 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+              />
+              {searchInput && (
+                <button onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Fetch button */}
           <button
