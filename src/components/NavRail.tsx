@@ -156,3 +156,4 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen 
     </motion.nav>
   );
 }
+
