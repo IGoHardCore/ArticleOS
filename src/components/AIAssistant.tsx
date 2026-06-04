@@ -86,8 +86,8 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Something went wrong';
       setMessages(prev => prev.slice(0, -1)); // remove empty assistant bubble
-      if (errMsg.includes('No Google AI Studio API key')) {
-        setError('No API key configured. Go to Settings to add your key.');
+      if (errMsg.includes('No AI API key configured') || errMsg.includes('No Google AI Studio API key')) {
+        setError('No API key configured. Go to Settings to add your Mistral or Google key.');
       } else {
         setError(errMsg);
       }

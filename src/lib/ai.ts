@@ -1,52 +1,151 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Mistral from '@mistralai/mistralai';
 import { getDb } from './db';
 
-function getGoogleKey(): string {
+// ── Provider detection ────────────────────────────────────────────────────────
+
+type Provider = 'mistral' | 'google';
+
+function getProviderConfig(): { provider: Provider; key: string } {
   const db = getDb();
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('api_key') as { value: string } | undefined;
-  const key = row?.value || process.env.GOOGLE_API_KEY || '';
-  if (!key) throw new Error('No Google AI Studio API key configured. Add your key in Settings.');
-  return key;
+  const get = (k: string) =>
+    (db.prepare('SELECT value FROM settings WHERE key = ?').get(k) as { value: string } | undefined)?.value || '';
+
+  const mistralKey = get('mistral_api_key') || process.env.MISTRAL_API_KEY || '';
+  const googleKey  = get('api_key')         || process.env.GOOGLE_API_KEY  || '';
+
+  // Mistral takes priority when both are set
+  if (mistralKey) return { provider: 'mistral', key: mistralKey };
+  if (googleKey)  return { provider: 'google',  key: googleKey };
+
+  throw new Error('No AI API key configured. Add your Mistral or Google key in Settings.');
 }
 
-// Model fallback chain: try each in order until one works.
-// gemini-2.0-flash has had free-tier quotas set to 0 on some projects;
-// gemini-2.0-flash-lite is the fallback with its own separate quota bucket.
-const MODEL_CHAIN = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+const SYSTEM_PROMPT = [
+  'You are a medical AI assistant for a pharmacist/clinician.',
+  'Format responses clearly: use short paragraphs, numbered lists for steps, and plain bold for drug names.',
+  'Never use raw markdown symbols like ** or * — write naturally.',
+  'Be concise, specific, and clinically relevant.',
+].join('\n');
 
 function isQuotaError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
 }
 
-async function generateText(prompt: string): Promise<string> {
-  const key = getGoogleKey();
+// ── Mistral implementations ───────────────────────────────────────────────────
+
+const MISTRAL_MODEL = 'mistral-small-latest';
+
+async function mistralGenerateText(key: string, prompt: string): Promise<string> {
+  const client = new Mistral({ apiKey: key });
+  const res = await client.chat.complete({
+    model: MISTRAL_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return (res.choices?.[0]?.message?.content as string) ?? '';
+}
+
+async function* mistralChatStream(
+  key: string,
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  articleContext?: string
+): AsyncGenerator<string> {
+  const client = new Mistral({ apiKey: key });
+  const systemMsg = articleContext
+    ? `${SYSTEM_PROMPT}\n\nThe user has recently engaged with these articles:\n${articleContext}`
+    : SYSTEM_PROMPT;
+
+  const messages = [
+    { role: 'system' as const, content: systemMsg },
+    ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user' as const, content: message },
+  ];
+
+  const stream = await client.chat.stream({ model: MISTRAL_MODEL, messages });
+  for await (const chunk of stream) {
+    const text = chunk.data.choices?.[0]?.delta?.content;
+    if (text) yield text as string;
+  }
+}
+
+async function mistralChat(
+  key: string,
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  articleContext?: string
+): Promise<string> {
+  let result = '';
+  for await (const chunk of mistralChatStream(key, message, history, articleContext)) result += chunk;
+  return result;
+}
+
+// ── Google implementations ────────────────────────────────────────────────────
+
+const GOOGLE_MODEL_CHAIN = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+
+function buildGoogleChatModel(key: string, modelName: string, articleContext?: string) {
+  const genAI = new GoogleGenerativeAI(key);
+  const systemInstruction = articleContext
+    ? `${SYSTEM_PROMPT}\n\nThe user has recently engaged with these articles:\n${articleContext}`
+    : SYSTEM_PROMPT;
+  return genAI.getGenerativeModel({ model: modelName, systemInstruction });
+}
+
+async function googleGenerateText(key: string, prompt: string): Promise<string> {
   const genAI = new GoogleGenerativeAI(key);
   let lastErr: unknown;
-  for (const modelName of MODEL_CHAIN) {
+  for (const modelName of GOOGLE_MODEL_CHAIN) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       return result.response.text();
     } catch (err) {
       lastErr = err;
-      if (!isQuotaError(err)) throw err; // non-quota errors bubble immediately
-      // quota error — try next model in chain
+      if (!isQuotaError(err)) throw err;
     }
   }
   throw lastErr;
 }
 
-function buildChatModel(key: string, modelName: string, articleContext?: string) {
-  const genAI = new GoogleGenerativeAI(key);
-  const systemInstruction = [
-    'You are a medical AI assistant for a pharmacist/clinician.',
-    'Format responses clearly: use short paragraphs, numbered lists for steps, and plain bold for drug names.',
-    'Never use raw markdown symbols like ** or * — write naturally.',
-    'Be concise, specific, and clinically relevant.',
-    articleContext ? `The user has recently engaged with these articles:\n${articleContext}` : '',
-  ].filter(Boolean).join('\n');
-  return genAI.getGenerativeModel({ model: modelName, systemInstruction });
+async function* googleChatStream(
+  key: string,
+  message: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  articleContext?: string
+): AsyncGenerator<string> {
+  const mappedHistory = history.map(m => ({
+    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+    parts: [{ text: m.content }],
+  }));
+  let lastErr: unknown;
+  for (const modelName of GOOGLE_MODEL_CHAIN) {
+    try {
+      const model = buildGoogleChatModel(key, modelName, articleContext);
+      const chat = model.startChat({ history: mappedHistory });
+      const result = await chat.sendMessageStream(message);
+      for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) yield text;
+      }
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (!isQuotaError(err)) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+async function generateText(prompt: string): Promise<string> {
+  const { provider, key } = getProviderConfig();
+  if (provider === 'mistral') return mistralGenerateText(key, prompt);
+  return googleGenerateText(key, prompt);
 }
 
 export async function generateChat(
@@ -54,15 +153,17 @@ export async function generateChat(
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   articleContext?: string
 ): Promise<string> {
-  const key = getGoogleKey();
+  const { provider, key } = getProviderConfig();
+  if (provider === 'mistral') return mistralChat(key, message, history, articleContext);
+
   const mappedHistory = history.map(m => ({
     role: m.role === 'assistant' ? 'model' as const : 'user' as const,
     parts: [{ text: m.content }],
   }));
   let lastErr: unknown;
-  for (const modelName of MODEL_CHAIN) {
+  for (const modelName of GOOGLE_MODEL_CHAIN) {
     try {
-      const model = buildChatModel(key, modelName, articleContext);
+      const model = buildGoogleChatModel(key, modelName, articleContext);
       const chat = model.startChat({ history: mappedHistory });
       const result = await chat.sendMessage(message);
       return result.response.text();
@@ -79,31 +180,12 @@ export async function generateChatStream(
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   articleContext?: string
 ): Promise<AsyncIterable<string>> {
-  const key = getGoogleKey();
-  const mappedHistory = history.map(m => ({
-    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: m.content }],
-  }));
-  let lastErr: unknown;
-  for (const modelName of MODEL_CHAIN) {
-    try {
-      const model = buildChatModel(key, modelName, articleContext);
-      const chat = model.startChat({ history: mappedHistory });
-      const result = await chat.sendMessageStream(message);
-      async function* textStream() {
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          if (text) yield text;
-        }
-      }
-      return textStream();
-    } catch (err) {
-      lastErr = err;
-      if (!isQuotaError(err)) throw err;
-    }
-  }
-  throw lastErr;
+  const { provider, key } = getProviderConfig();
+  if (provider === 'mistral') return mistralChatStream(key, message, history, articleContext);
+  return googleChatStream(key, message, history, articleContext);
 }
+
+// ── Article analysis ──────────────────────────────────────────────────────────
 
 const TAG_LIST = [
   'cancer', 'cardiology', 'neurology', 'pharmacology', 'drug approval',
@@ -119,12 +201,10 @@ export interface AIResult {
 
 function ensureTwoParagraphs(text: string): string {
   if (!text) return text;
-  // Normalize any \r\n or single \n between sentences into \n\n
   const normalized = text.replace(/\r\n/g, '\n');
   const paragraphs = normalized.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
   if (paragraphs.length >= 2) return paragraphs.join('\n\n');
 
-  // Only one paragraph — split at a sentence boundary near the midpoint
   const sentences = normalized.split(/(?<=[.!?])\s+/);
   if (sentences.length < 2) return normalized;
   const mid = Math.ceil(sentences.length / 2);
@@ -155,7 +235,6 @@ Rules:
 - tags: pick 1-4 from the available list only`;
 
   const raw = await generateText(prompt);
-
   const cleaned = raw.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
 
   try {
@@ -208,8 +287,7 @@ export async function processUnanalyzedArticles(limit = 10): Promise<number> {
         if (tag) insertTag.run(article.id, tag.id);
       }
       processed++;
-      // Pace requests to stay under the 15 RPM free tier limit
-      if (processed < articles.length) await new Promise(r => setTimeout(r, 4500));
+      if (processed < articles.length) await new Promise(r => setTimeout(r, 2000));
     } catch (err) {
       console.error(`Failed to analyze article ${article.id}:`, err);
     }
