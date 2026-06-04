@@ -36,17 +36,22 @@ export default function HomePage() {
   const [query, setQuery] = useState('');
   const [searchActive, setSearchActive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const url = query.trim()
         ? `/api/articles?q=${encodeURIComponent(query.trim())}&limit=50`
         : `/api/articles?mode=${mode}&limit=50&offset=0`;
       const res = await fetch(url);
       const data = await res.json();
+      if (!res.ok) { setFetchError(data.error || 'Failed to load articles'); return; }
       setArticles(data.articles || []);
       setIndex(0);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setLoading(false);
     }
@@ -63,9 +68,14 @@ export default function HomePage() {
 
   async function refreshFeed() {
     setRefreshing(true);
+    setFetchError(null);
     try {
-      await fetch('/api/scrape', { method: 'POST' });
+      const res = await fetch('/api/scrape', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { setFetchError(data.error || 'Scrape failed'); }
       await fetchArticles();
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setRefreshing(false);
     }
@@ -158,6 +168,14 @@ export default function HomePage() {
           </div>
 
         </div>
+
+        {/* ─── Error banner ─── */}
+        {fetchError && (
+          <div className="mx-4 sm:mx-6 mt-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-center gap-2">
+            <span className="flex-1">{fetchError}</span>
+            <button onClick={() => setFetchError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+          </div>
+        )}
 
         {/* ─── Cards View ─── */}
         {view === 'cards' && (
