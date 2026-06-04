@@ -2,10 +2,12 @@ import { NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { generateChatStream } from '@/lib/ai';
 import { db } from '@/lib/db';
-import { checkRateLimit } from '@/lib/ratelimit';
+import { checkRateLimit, checkDailyLimit } from '@/lib/ratelimit';
 
-const MAX_MESSAGE_LENGTH = 8000;
+const MAX_MESSAGE_LENGTH = 4000;
+const MAX_HISTORY_ITEMS = 20;
 const CHAT_RATE_LIMIT = { maxRequests: 20, windowMs: 60_000 };
+const CHAT_DAILY_LIMIT = 100;
 
 async function buildUserProfile(userId: string): Promise<string> {
   try {
@@ -112,12 +114,30 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const { message, history = [] } = await req.json();
+  const daily = await checkDailyLimit(userId, 'chat', CHAT_DAILY_LIMIT);
+  if (!daily.allowed) {
+    return new Response(JSON.stringify({ error: `Daily AI limit reached (${daily.limit} messages/day). Resets at midnight.` }), {
+      status: 429, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const { message, history = [] } = body as { message?: string; history?: unknown[] };
   if (!message?.trim()) return new Response('Empty message', { status: 400 });
   if (message.length > MAX_MESSAGE_LENGTH) {
     return new Response(JSON.stringify({ error: 'Message too long' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-  const trimmedHistory = Array.isArray(history) ? history.slice(-20) : [];
+  if (!Array.isArray(history)) {
+    return new Response(JSON.stringify({ error: 'Invalid history' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const trimmedHistory = (history as unknown[])
+    .slice(-MAX_HISTORY_ITEMS)
+    .filter((m): m is { role: 'user' | 'assistant'; content: string } => {
+      if (typeof m !== 'object' || m === null) return false;
+      const r = (m as Record<string, unknown>).role;
+      return r === 'user' || r === 'assistant';
+    })
+    .map(m => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
 
   try {
     const articleContext = await buildUserProfile(userId);

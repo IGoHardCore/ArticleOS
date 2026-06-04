@@ -217,7 +217,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
 
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap mb-2">
-                    {article.tags.slice(0, 2).map(tag => (
+                    {article.tags.map(tag => (
                       <span
                         key={tag.id}
                         className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
@@ -268,7 +268,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
                 <span className="text-xs text-slate-400">{timeAgo(article.published_at)}</span>
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap">
-                    {article.tags.slice(0, 2).map(tag => (
+                    {article.tags.map(tag => (
                       <span
                         key={tag.id}
                         className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}

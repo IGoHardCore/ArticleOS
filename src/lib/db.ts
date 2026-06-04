@@ -5,9 +5,13 @@ const globalForDb = globalThis as unknown as { _supabase: SupabaseClient | undef
 function getDb(): SupabaseClient {
   if (globalForDb._supabase) return globalForDb._supabase;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
-  const client = createClient(url, key);
+  // Prefer the private service-role key (bypasses RLS, never sent to browser).
+  // Fall back to the publishable key for local dev without a service key set.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error('Missing Supabase URL or key env vars');
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   if (process.env.NODE_ENV !== 'production') globalForDb._supabase = client;
   return client;
 }

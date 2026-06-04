@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { analyzeArticle } from '@/lib/ai';
-import { checkRateLimit } from '@/lib/ratelimit';
+import { checkRateLimit, checkDailyLimit } from '@/lib/ratelimit';
 
 const SUMMARIZE_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
+const SUMMARIZE_DAILY_LIMIT = 50;
 
 async function analyzeWithRetry(title: string, text: string, userId: string, attempts = 4) {
   for (let i = 0; i < attempts; i++) {
@@ -32,6 +33,9 @@ export async function POST(
 
   const { allowed, retryAfterMs } = checkRateLimit(`summarize:${userId}`, SUMMARIZE_RATE_LIMIT.maxRequests, SUMMARIZE_RATE_LIMIT.windowMs);
   if (!allowed) return NextResponse.json({ error: `Rate limit. Try again in ${Math.ceil(retryAfterMs / 1000)}s.` }, { status: 429 });
+
+  const daily = await checkDailyLimit(userId, 'summarize', SUMMARIZE_DAILY_LIMIT);
+  if (!daily.allowed) return NextResponse.json({ error: `Daily summary limit reached (${daily.limit}/day). Resets at midnight.` }, { status: 429 });
 
   const { id } = await params;
   const numId = parseInt(id);
