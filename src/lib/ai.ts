@@ -9,19 +9,35 @@ function getGoogleKey(): string {
   return key;
 }
 
-// gemini-2.0-flash: 1500 free requests/day vs gemini-2.5-flash's 20/day
-const CHAT_MODEL = 'gemini-2.0-flash';
-const TEXT_MODEL = 'gemini-2.0-flash';
+// Model fallback chain: try each in order until one works.
+// gemini-2.0-flash has had free-tier quotas set to 0 on some projects;
+// gemini-2.0-flash-lite is the fallback with its own separate quota bucket.
+const MODEL_CHAIN = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+
+function isQuotaError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
+}
 
 async function generateText(prompt: string): Promise<string> {
   const key = getGoogleKey();
   const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: TEXT_MODEL });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  let lastErr: unknown;
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      lastErr = err;
+      if (!isQuotaError(err)) throw err; // non-quota errors bubble immediately
+      // quota error — try next model in chain
+    }
+  }
+  throw lastErr;
 }
 
-function buildChatModel(key: string, articleContext?: string) {
+function buildChatModel(key: string, modelName: string, articleContext?: string) {
   const genAI = new GoogleGenerativeAI(key);
   const systemInstruction = [
     'You are a medical AI assistant for a pharmacist/clinician.',
@@ -30,7 +46,7 @@ function buildChatModel(key: string, articleContext?: string) {
     'Be concise, specific, and clinically relevant.',
     articleContext ? `The user has recently engaged with these articles:\n${articleContext}` : '',
   ].filter(Boolean).join('\n');
-  return genAI.getGenerativeModel({ model: CHAT_MODEL, systemInstruction });
+  return genAI.getGenerativeModel({ model: modelName, systemInstruction });
 }
 
 export async function generateChat(
@@ -39,15 +55,23 @@ export async function generateChat(
   articleContext?: string
 ): Promise<string> {
   const key = getGoogleKey();
-  const model = buildChatModel(key, articleContext);
-  const chat = model.startChat({
-    history: history.map(m => ({
-      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-      parts: [{ text: m.content }],
-    })),
-  });
-  const result = await chat.sendMessage(message);
-  return result.response.text();
+  const mappedHistory = history.map(m => ({
+    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+    parts: [{ text: m.content }],
+  }));
+  let lastErr: unknown;
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      const model = buildChatModel(key, modelName, articleContext);
+      const chat = model.startChat({ history: mappedHistory });
+      const result = await chat.sendMessage(message);
+      return result.response.text();
+    } catch (err) {
+      lastErr = err;
+      if (!isQuotaError(err)) throw err;
+    }
+  }
+  throw lastErr;
 }
 
 export async function generateChatStream(
@@ -56,21 +80,29 @@ export async function generateChatStream(
   articleContext?: string
 ): Promise<AsyncIterable<string>> {
   const key = getGoogleKey();
-  const model = buildChatModel(key, articleContext);
-  const chat = model.startChat({
-    history: history.map(m => ({
-      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-      parts: [{ text: m.content }],
-    })),
-  });
-  const result = await chat.sendMessageStream(message);
-  async function* textStream() {
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) yield text;
+  const mappedHistory = history.map(m => ({
+    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+    parts: [{ text: m.content }],
+  }));
+  let lastErr: unknown;
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      const model = buildChatModel(key, modelName, articleContext);
+      const chat = model.startChat({ history: mappedHistory });
+      const result = await chat.sendMessageStream(message);
+      async function* textStream() {
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          if (text) yield text;
+        }
+      }
+      return textStream();
+    } catch (err) {
+      lastErr = err;
+      if (!isQuotaError(err)) throw err;
     }
   }
-  return textStream();
+  throw lastErr;
 }
 
 const TAG_LIST = [
