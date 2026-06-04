@@ -37,6 +37,9 @@ export default function ArticlePage() {
   const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [liveSummary, setLiveSummary] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/articles/${id}`)
@@ -44,6 +47,19 @@ export default function ArticlePage() {
       .then(d => { setArticle(d.article); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!article || article.summary) return;
+    setSummaryLoading(true);
+    fetch(`/api/articles/${article.id}/summarize`, { method: 'POST' })
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Failed');
+        if (d.summary) setLiveSummary(d.summary);
+      })
+      .catch(err => setSummaryError(err instanceof Error ? err.message : 'Failed'))
+      .finally(() => setSummaryLoading(false));
+  }, [article]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -92,19 +108,35 @@ export default function ArticlePage() {
 
               <h1 className="text-2xl font-bold text-slate-900 mb-5 leading-tight">{article.title}</h1>
 
-              {article.summary && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <BookOpen size={14} className="text-indigo-500" />
-                    <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">AI Summary</span>
-                  </div>
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen size={14} className="text-indigo-500" />
+                  <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">AI Summary</span>
+                </div>
+                {(article.summary || liveSummary) ? (
                   <div className="space-y-3">
-                    {article.summary.split('\n\n').filter(Boolean).map((para, i) => (
+                    {(article.summary || liveSummary)!.split('\n\n').filter(Boolean).map((para, i) => (
                       <p key={i} className="text-sm text-slate-700 leading-relaxed">{para}</p>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : summaryLoading ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-indigo-500 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span>Generating AI summary…</span>
+                    </div>
+                    <div className="h-3 bg-indigo-100 rounded animate-pulse w-full" />
+                    <div className="h-3 bg-indigo-100 rounded animate-pulse w-5/6" />
+                    <div className="h-3 bg-indigo-100 rounded animate-pulse w-4/5" />
+                  </div>
+                ) : summaryError ? (
+                  <p className="text-sm text-slate-500">{summaryError.includes('API key') ? 'No API key configured — go to Settings.' : summaryError}</p>
+                ) : (
+                  <p className="text-sm text-slate-400">No summary available.</p>
+                )}
+              </div>
 
               <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Rate this article</p>
@@ -120,6 +152,17 @@ export default function ArticlePage() {
                     {article.full_text.length > 2000 && '…'}
                   </div>
                 </div>
+              )}
+
+              {article.url && (
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors mb-6"
+                >
+                  Read Full Article →
+                </a>
               )}
             </article>
           )}

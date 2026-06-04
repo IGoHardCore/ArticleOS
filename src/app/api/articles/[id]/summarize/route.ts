@@ -6,10 +6,10 @@ import { checkRateLimit } from '@/lib/ratelimit';
 
 const SUMMARIZE_RATE_LIMIT = { maxRequests: 10, windowMs: 60_000 };
 
-async function analyzeWithRetry(title: string, text: string, attempts = 4) {
+async function analyzeWithRetry(title: string, text: string, userId: string, attempts = 4) {
   for (let i = 0; i < attempts; i++) {
     try {
-      return await analyzeArticle(title, text);
+      return await analyzeArticle(title, text, userId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
@@ -47,7 +47,7 @@ export async function POST(
   if (article.summary) return NextResponse.json({ summary: article.summary });
 
   try {
-    const result = await analyzeWithRetry(article.title, article.full_text || article.title);
+    const result = await analyzeWithRetry(article.title, article.full_text || article.title, userId);
     if (result.summary) {
       await db.from('articles').update({ summary: result.summary }).eq('id', numId);
     }

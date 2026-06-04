@@ -230,7 +230,7 @@ function ensureTwoParagraphs(text: string): string {
   return p2 ? `${p1}\n\n${p2}` : p1;
 }
 
-export async function analyzeArticle(title: string, text: string): Promise<AIResult> {
+export async function analyzeArticle(title: string, text: string, userId?: string): Promise<AIResult> {
   const content = text?.slice(0, 4000) || '';
   const prompt = `You are a medical/pharmacy news analyst. Analyze this article and respond with valid JSON only.
 
@@ -251,7 +251,7 @@ Rules:
 - Be specific: include percentages, drug names, patient populations when available
 - tags: pick 1-4 from the available list only`;
 
-  const raw = await generateText(prompt, undefined);
+  const raw = await generateText(prompt, userId);
   const cleaned = raw.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
 
   try {
