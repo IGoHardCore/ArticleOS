@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Newspaper, SlidersHorizontal, ChevronDown, LayoutList, LayoutGrid, RefreshCw } from 'lucide-react';
+import { Newspaper, ChevronDown, LayoutList, LayoutGrid, RefreshCw } from 'lucide-react';
 import { Article } from '@/lib/db';
 import { RatingBar } from './RatingBar';
 
@@ -102,12 +102,9 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortMode]);
 
-  // Re-fetch after parent finishes scraping new articles
   const prevFetching = useRef(false);
   useEffect(() => {
-    if (prevFetching.current && !fetching) {
-      fetchArticles(true);
-    }
+    if (prevFetching.current && !fetching) fetchArticles(true);
     prevFetching.current = !!fetching;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetching]);
@@ -116,20 +113,17 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
     <div>
       {/* Top bar */}
       <div className="mb-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Feed</h1>
-            <p className="text-sm text-slate-400 mt-0.5">Personalized intelligence, updated continuously.</p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Feed</h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Personalized intelligence, updated continuously.</p>
           </div>
-          {/* Filter controls */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 hover:border-slate-300 transition-colors font-medium">
-              <SlidersHorizontal size={12} />
-              Filters
-            </button>
+
+          {/* Controls — wrap naturally on mobile */}
+          <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
             <button
               onClick={() => setSortMode(prev => prev === 'recommended' ? 'latest' : 'recommended')}
-              className={`flex items-center gap-1 px-3 py-1.5 border rounded-xl text-xs transition-colors font-medium ${
+              className={`flex items-center gap-1 px-3 py-2 border rounded-xl text-xs transition-colors font-medium min-h-[36px] ${
                 sortMode === 'latest'
                   ? 'bg-blue-50 border-blue-200 text-blue-600'
                   : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
@@ -138,31 +132,30 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
               {sortMode === 'latest' ? 'Latest' : 'For You'}
               <ChevronDown size={12} />
             </button>
+
             <button
               onClick={onFetch}
               disabled={fetching}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors flex-shrink-0 min-h-[36px]"
             >
               <RefreshCw size={11} className={fetching ? 'animate-spin' : ''} />
               {fetching ? 'Fetching…' : 'Fetch'}
             </button>
-            <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
+
+            {/* Layout toggle — hidden on mobile, show on sm+ */}
+            <div className="hidden sm:flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
               <button
                 onClick={() => setLayout('list')}
-                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-                  layout === 'list'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-slate-600'
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  layout === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 <LayoutList size={14} />
               </button>
               <button
                 onClick={() => setLayout('grid')}
-                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-                  layout === 'grid'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-slate-600'
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  layout === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 <LayoutGrid size={14} />
@@ -186,11 +179,12 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
         <div className="text-center py-16">
           <Newspaper size={36} className="mx-auto mb-3 text-slate-300" />
           <p className="text-slate-500 font-medium">No articles yet</p>
-          <p className="text-slate-400 text-sm mt-1">Use the AI panel to refresh your feed</p>
+          <p className="text-slate-400 text-sm mt-1">Tap Fetch to load the latest medical articles</p>
         </div>
       ) : layout === 'grid' ? (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          {/* Grid: 1 col on mobile, 2 col on sm+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {articles.map((article, i) => (
               <motion.div
                 key={article.id}
@@ -198,23 +192,20 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.04, 0.3) }}
                 onClick={() => onArticleClick(article)}
-                className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:shadow-md transition-all group"
+                className="bg-white border border-slate-200 rounded-2xl px-4 py-3 cursor-pointer hover:shadow-md active:scale-[0.99] transition-all group"
               >
-                {/* Top row: source · time */}
                 <div className="flex items-center gap-1.5 mb-2">
-                  <span className={`text-xs font-semibold ${getSourceColor(article.source)}`}>
+                  <span className={`text-xs font-semibold truncate max-w-[120px] ${getSourceColor(article.source)}`}>
                     {article.source || 'Unknown'}
                   </span>
-                  <span className="text-slate-300 text-xs">·</span>
-                  <span className="text-xs text-slate-400">{timeAgo(article.published_at)}</span>
+                  <span className="text-slate-300 text-xs flex-shrink-0">·</span>
+                  <span className="text-xs text-slate-400 flex-shrink-0">{timeAgo(article.published_at)}</span>
                 </div>
 
-                {/* Title */}
                 <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-3 group-hover:text-blue-700 transition-colors mb-2">
                   {article.title}
                 </h3>
 
-                {/* Tags (max 2) */}
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap mb-2">
                     {article.tags.slice(0, 2).map(tag => (
@@ -228,12 +219,8 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
                   </div>
                 )}
 
-                {/* Rating bar */}
-                <div
-                  className="border-t border-slate-100 pt-2"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <RatingBar articleId={article.id} initialRating={article.user_rating} />
+                <div className="border-t border-slate-100 pt-2" onClick={e => e.stopPropagation()}>
+                  <RatingBar articleId={article.id} initialRating={article.user_rating} compact />
                 </div>
               </motion.div>
             ))}
@@ -244,7 +231,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
               <button
                 onClick={() => fetchArticles(false)}
                 disabled={loadingMore}
-                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>
@@ -252,6 +239,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
           )}
         </>
       ) : (
+        /* List view */
         <div className="space-y-3">
           {articles.map((article, i) => (
             <motion.div
@@ -260,54 +248,48 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.04, 0.3) }}
               onClick={() => onArticleClick(article)}
-              className="bg-white border border-slate-200 rounded-2xl px-5 py-4 cursor-pointer hover:shadow-md transition-all group"
+              className="bg-white border border-slate-200 rounded-2xl px-4 sm:px-5 py-4 cursor-pointer hover:shadow-md active:scale-[0.995] transition-all group"
             >
               {/* Top row: source · time | tags */}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3 flex-wrap">
                 <span className={`text-xs font-semibold ${getSourceColor(article.source)}`}>
                   {article.source || 'Unknown'}
                 </span>
                 <span className="text-slate-300 text-xs">·</span>
                 <span className="text-xs text-slate-400">{timeAgo(article.published_at)}</span>
                 {article.tags && article.tags.length > 0 && (
-                  <>
-                    <span className="text-slate-200 text-xs mx-0.5">|</span>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {article.tags.slice(0, 3).map(tag => (
-                        <span
-                          key={tag.id}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  </>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {article.tags.slice(0, 2).map(tag => (
+                      <span
+                        key={tag.id}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TAG_COLORS[tag.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Body: split layout */}
+              {/* Title always full width on mobile, split on sm+ */}
               <div className="flex gap-4 mb-3">
-                <div className="w-[55%] flex-shrink-0">
+                <div className="w-full sm:w-[55%] sm:flex-shrink-0">
                   <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
                     {article.title}
                   </h3>
                 </div>
-                <div className="flex-1 min-w-0">
-                  {article.summary && (
+                {/* Summary — hidden on mobile, shown on sm+ */}
+                {article.summary && (
+                  <div className="hidden sm:block flex-1 min-w-0">
                     <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
                       {article.summary.split('\n\n')[0]}
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Bottom: full-width rating bar */}
-              <div
-                className="border-t border-slate-100 pt-3"
-                onClick={e => e.stopPropagation()}
-              >
-                <RatingBar articleId={article.id} initialRating={article.user_rating} />
+              <div className="border-t border-slate-100 pt-2 sm:pt-3" onClick={e => e.stopPropagation()}>
+                <RatingBar articleId={article.id} initialRating={article.user_rating} compact />
               </div>
             </motion.div>
           ))}
@@ -317,7 +299,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
               <button
                 onClick={() => fetchArticles(false)}
                 disabled={loadingMore}
-                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-6 py-3 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </button>

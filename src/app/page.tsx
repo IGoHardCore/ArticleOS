@@ -161,10 +161,10 @@ export default function HomePage() {
 
         {/* ─── Cards View ─── */}
         {view === 'cards' && (
-          <div className="max-w-3xl mx-auto px-6 py-6">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             {/* Top Pick */}
             {!query && mode === 'recommended' && (
-              <div className="mb-6">
+              <div className="mb-5 sm:mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Top Pick</span>
                   <div className="flex items-center gap-0.5 ml-auto bg-white border border-slate-200 rounded-lg p-0.5">
@@ -208,12 +208,12 @@ export default function HomePage() {
               </div>
             ) : (
               <>
-                {/* Side arrows layout */}
-                <div className="flex items-center gap-3">
+                {/* Side arrows layout — arrows hidden on mobile (swipe via dots) */}
+                <div className="flex items-center gap-2 sm:gap-3">
                   <button
                     onClick={goPrev}
                     disabled={index === 0}
-                    className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
+                    className="hidden sm:flex w-10 h-10 rounded-full bg-white border border-slate-200 items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
                   >
                     <ChevronLeft size={18} />
                   </button>
@@ -232,15 +232,45 @@ export default function HomePage() {
                   <button
                     onClick={goNext}
                     disabled={index >= articles.length - 1}
-                    className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
+                    className="hidden sm:flex w-10 h-10 rounded-full bg-white border border-slate-200 items-center justify-center text-slate-400 hover:text-slate-700 disabled:opacity-25 shadow-sm flex-shrink-0"
                   >
                     <ChevronRight size={18} />
                   </button>
                 </div>
 
-                {/* Progress counter + dots */}
+                {/* Progress dots + mobile prev/next */}
                 <div className="mt-4 flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-1">
+                  {/* Mobile tap nav */}
+                  <div className="flex items-center gap-4 sm:hidden">
+                    <button
+                      onClick={goPrev}
+                      disabled={index === 0}
+                      className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-25 shadow-sm"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {articles.slice(Math.max(0, index - 3), Math.min(articles.length, index + 4)).map((a, i) => {
+                        const realIdx = Math.max(0, index - 3) + i;
+                        return (
+                          <button
+                            key={a.id}
+                            onClick={() => { setDirection(realIdx > index ? 1 : -1); setIndex(realIdx); }}
+                            className={cn('rounded-full transition-all', realIdx === index ? 'w-5 h-2 bg-indigo-500' : 'w-2 h-2 bg-slate-200')}
+                          />
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={goNext}
+                      disabled={index >= articles.length - 1}
+                      className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-25 shadow-sm"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                  {/* Desktop dots */}
+                  <div className="hidden sm:flex items-center gap-1">
                     {articles.slice(Math.max(0, index - 3), Math.min(articles.length, index + 4)).map((a, i) => {
                       const realIdx = Math.max(0, index - 3) + i;
                       return (
@@ -252,9 +282,7 @@ export default function HomePage() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-slate-400">
-                    {index + 1} of {articles.length}
-                  </p>
+                  <p className="text-xs text-slate-400">{index + 1} of {articles.length}</p>
                 </div>
               </>
             )}
@@ -263,7 +291,7 @@ export default function HomePage() {
 
         {/* ─── Feed View ─── */}
         {view === 'feed' && (
-          <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
           </div>
         )}

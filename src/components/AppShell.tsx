@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { NavRail } from './NavRail';
 import { AIAssistant } from './AIAssistant';
+import { MobileNav } from './MobileNav';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -14,6 +15,14 @@ interface AppShellProps {
 export function AppShell({ children, view, onViewChange }: AppShellProps) {
   const [aiOpen, setAiOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     const savedSidebar = localStorage.getItem('navrail_expanded');
@@ -34,27 +43,40 @@ export function AppShell({ children, view, onViewChange }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      <NavRail
-        view={view}
-        onViewChange={onViewChange}
-        expanded={sidebarExpanded}
-        onToggle={toggleSidebar}
-        aiOpen={aiOpen}
-        onToggleAi={() => {
-          const next = !aiOpen;
-          setAiOpen(next);
-          localStorage.setItem('articleos_ai_open', String(next));
-        }}
-      />
+      {/* Sidebar — hidden on mobile, shown on md+ */}
+      <div className="hidden md:block">
+        <NavRail
+          view={view}
+          onViewChange={onViewChange}
+          expanded={sidebarExpanded}
+          onToggle={toggleSidebar}
+          aiOpen={aiOpen}
+          onToggleAi={() => {
+            const next = !aiOpen;
+            setAiOpen(next);
+            localStorage.setItem('articleos_ai_open', String(next));
+          }}
+        />
+      </div>
+
       <motion.main
-        animate={{ marginLeft: sidebarWidth }}
+        animate={{ marginLeft: isMobile ? 0 : sidebarWidth }}
         transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-        className="flex-1 overflow-y-auto min-w-0"
+        className="flex-1 overflow-y-auto min-w-0 pb-16 md:pb-0"
       >
         {children}
       </motion.main>
-      <AIAssistant open={aiOpen} onOpenChange={v => { setAiOpen(v); localStorage.setItem('articleos_ai_open', String(v)); }} />
+
+      <AIAssistant
+        open={aiOpen}
+        onOpenChange={v => {
+          setAiOpen(v);
+          localStorage.setItem('articleos_ai_open', String(v));
+        }}
+      />
+
+      {/* Bottom tab bar — mobile only */}
+      <MobileNav />
     </div>
   );
 }
-

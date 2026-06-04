@@ -86,11 +86,11 @@ export function RatingBar({ articleId, initialRating, onRate, compact }: RatingB
               onClick={e => { e.stopPropagation(); handleRate(r.value); }}
               title={r.label}
               className={cn(
-                'w-7 h-7 rounded-full flex items-center justify-center border transition-all duration-150',
+                'w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-150',
                 rating === r.value ? r.activeClass : r.inactiveClass
               )}
             >
-              <Icon size={12} />
+              <Icon size={13} />
             </motion.button>
           );
         })}

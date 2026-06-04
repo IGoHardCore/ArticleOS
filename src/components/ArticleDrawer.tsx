@@ -114,19 +114,23 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
             onClick={onClose}
           />
 
-          {/* Modal positioner — no pointer events so backdrop click-through works */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            {/* Modal box */}
+          {/* Bottom sheet on mobile, centered modal on sm+ */}
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4 pointer-events-none">
             <motion.div
               key="modal"
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 16 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="brand-paper-card w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden pointer-events-auto"
+              initial={{ opacity: 0, y: 48 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 48 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 340 }}
+              className="brand-paper-card w-full sm:max-w-3xl max-h-[92dvh] flex flex-col overflow-hidden pointer-events-auto rounded-t-3xl rounded-b-none sm:rounded-3xl"
             >
+              {/* Drag handle — mobile only */}
+              <div className="flex-shrink-0 flex justify-center pt-3 pb-1 sm:hidden">
+                <div className="w-10 h-1 rounded-full bg-slate-200" />
+              </div>
+
               {/* Header */}
-              <div className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-3">
+              <div className="flex-shrink-0 flex items-center justify-between px-4 pt-2 sm:pt-4 pb-3">
                 {/* Close button */}
                 <button
                   onClick={onClose}
