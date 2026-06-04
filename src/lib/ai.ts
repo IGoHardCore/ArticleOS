@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import Mistral from '@mistralai/mistralai';
+import { Mistral } from '@mistralai/mistralai';
 import { getDb } from './db';
 
 // ── Provider detection ────────────────────────────────────────────────────────
