@@ -129,7 +129,7 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen 
 
       {/* User account */}
       <div className="px-3 pb-2 flex items-center gap-2">
-        <UserButton afterSignOutUrl="/sign-in" />
+        <UserButton />
         <AnimatePresence>
           {expanded && (
             <motion.span
