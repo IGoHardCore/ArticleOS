@@ -2,12 +2,21 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const globalForDb = globalThis as unknown as { _supabase: SupabaseClient | undefined };
 
-export const db = globalForDb._supabase ?? createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-);
+function getDb(): SupabaseClient {
+  if (globalForDb._supabase) return globalForDb._supabase;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+  const client = createClient(url, key);
+  if (process.env.NODE_ENV !== 'production') globalForDb._supabase = client;
+  return client;
+}
 
-if (process.env.NODE_ENV !== 'production') globalForDb._supabase = db;
+export const db = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return getDb()[prop as keyof SupabaseClient];
+  },
+});
 
 export interface Article {
   id: number;
