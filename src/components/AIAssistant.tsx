@@ -10,10 +10,10 @@ interface Message {
 }
 
 const STARTERS = [
-  'What are the latest FDA approvals?',
-  'Explain drug-drug interactions with warfarin',
-  'What is the mechanism of GLP-1 agonists?',
-  'Summarize key oncology breakthroughs this year',
+  'What research themes keep coming up in my reading?',
+  'Help me structure a thesis argument based on what I\'ve been reading',
+  'What questions should I be asking about my top topics?',
+  'What are the gaps or controversies in what I\'ve been studying?',
 ];
 
 interface AIAssistantProps {
@@ -262,8 +262,8 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
             <Sparkles size={13} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800 leading-tight">Medical AI</p>
-            <p className="text-[10px] text-slate-400">Powered by Gemini</p>
+            <p className="text-sm font-semibold text-slate-800 leading-tight">Research Companion</p>
+            <p className="text-[10px] text-slate-400">Knows your reading history</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -293,8 +293,8 @@ function PanelContent({ messages, input, loading, error, inputRef, bottomRef, on
               <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-3">
                 <Sparkles size={20} className="text-indigo-500" />
               </div>
-              <p className="text-sm font-medium text-slate-700 mb-1">Medical AI Assistant</p>
-              <p className="text-xs text-slate-400 leading-relaxed">Ask anything about drugs, clinical research, pharmacology, or patient care.</p>
+              <p className="text-sm font-medium text-slate-700 mb-1">Research Companion</p>
+              <p className="text-xs text-slate-400 leading-relaxed">I know what you&apos;ve been reading. Let&apos;s think through your research together — I&apos;ll ask questions, not just give answers.</p>
             </div>
             <div className="space-y-1.5 mt-2">
               {STARTERS.map(s => (

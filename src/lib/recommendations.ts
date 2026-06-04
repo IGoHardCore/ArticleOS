@@ -73,7 +73,12 @@ export async function getTagWeights(userId?: string): Promise<TagScore[]> {
   const weights = new Map<number, TagScore>();
   for (const r of ratings as { article_id: number; rating: number; created_at: string }[]) {
     const recency = 1.0 / (1 + (Date.now() - new Date(r.created_at).getTime()) / 604800000);
-    const contribution = r.rating * recency;
+    // Positive signal: 4-5 strongly boosts, 3 weakly boosts
+    // Negative signal: 1-2 penalises (skip = user actively not interested)
+    const contribution =
+      r.rating >= 4 ? r.rating * recency * 1.5
+      : r.rating === 3 ? r.rating * recency * 0.5
+      : -(3 - r.rating) * recency * 0.8; // 1→-1.6, 2→-0.8
     const links = (tagLinks ?? []).filter((l: { article_id: number }) => l.article_id === r.article_id);
     for (const link of links) {
       const t = link.tags as unknown as Tag;
@@ -108,20 +113,23 @@ export async function getRecommendedArticles(limit = 20, offset = 0, userId?: st
     const articleTags = tagMap.get(a.id) ?? [];
     let tagScore = 0;
     for (const t of articleTags) {
-      if (weightMap[t.id]) tagScore += weightMap[t.id] / maxWeight;
+      const w = weightMap[t.id];
+      if (w !== undefined) tagScore += w / maxWeight;
     }
     const hoursOld = a.published_at
       ? (Date.now() - new Date(a.published_at).getTime()) / 3600000
       : 168;
     const recencyBonus = Math.max(0, 1 - hoursOld / 72);
-    const noveltyBonus = agg.ratingCount(a.id) === 0 ? 0.2 : 0;
+    const noveltyBonus = agg.ratingCount(a.id) === 0 ? 0.15 : 0;
+    // Articles the user already rated get a small penalty (already seen)
+    const seenPenalty = agg.userRating(a.id) ? -0.3 : 0;
     return {
       ...a,
       tags: articleTags,
       avg_rating: agg.avgRating(a.id),
       rating_count: agg.ratingCount(a.id),
       user_rating: agg.userRating(a.id) ?? undefined,
-      score: tagScore * 2 + recencyBonus + noveltyBonus,
+      score: tagScore * 2 + recencyBonus + noveltyBonus + seenPenalty,
     };
   });
 
