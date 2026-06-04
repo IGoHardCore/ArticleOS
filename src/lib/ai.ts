@@ -6,15 +6,21 @@ import { getDb } from './db';
 
 type Provider = 'mistral' | 'google';
 
-function getProviderConfig(): { provider: Provider; key: string } {
+function getProviderConfig(userId?: string): { provider: Provider; key: string } {
   const db = getDb();
-  const get = (k: string) =>
-    (db.prepare('SELECT value FROM settings WHERE key = ?').get(k) as { value: string } | undefined)?.value || '';
+  const get = (k: string) => {
+    // Per-user key first, then global fallback, then env var
+    if (userId) {
+      const userRow = db.prepare('SELECT value FROM user_settings WHERE clerk_user_id = ? AND key = ?').get(userId, k) as { value: string } | undefined;
+      if (userRow?.value) return userRow.value;
+    }
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(k) as { value: string } | undefined;
+    return row?.value || '';
+  };
 
   const mistralKey = get('mistral_api_key') || process.env.MISTRAL_API_KEY || '';
   const googleKey  = get('api_key')         || process.env.GOOGLE_API_KEY  || '';
 
-  // Mistral takes priority when both are set
   if (mistralKey) return { provider: 'mistral', key: mistralKey };
   if (googleKey)  return { provider: 'google',  key: googleKey };
 
@@ -142,8 +148,8 @@ async function* googleChatStream(
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-async function generateText(prompt: string): Promise<string> {
-  const { provider, key } = getProviderConfig();
+async function generateText(prompt: string, userId?: string): Promise<string> {
+  const { provider, key } = getProviderConfig(userId);
   if (provider === 'mistral') return mistralGenerateText(key, prompt);
   return googleGenerateText(key, prompt);
 }
@@ -151,9 +157,10 @@ async function generateText(prompt: string): Promise<string> {
 export async function generateChat(
   message: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
-  articleContext?: string
+  articleContext?: string,
+  userId?: string
 ): Promise<string> {
-  const { provider, key } = getProviderConfig();
+  const { provider, key } = getProviderConfig(userId);
   if (provider === 'mistral') return mistralChat(key, message, history, articleContext);
 
   const mappedHistory = history.map(m => ({
@@ -178,9 +185,10 @@ export async function generateChat(
 export async function generateChatStream(
   message: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
-  articleContext?: string
+  articleContext?: string,
+  userId?: string
 ): Promise<AsyncIterable<string>> {
-  const { provider, key } = getProviderConfig();
+  const { provider, key } = getProviderConfig(userId);
   if (provider === 'mistral') return mistralChatStream(key, message, history, articleContext);
   return googleChatStream(key, message, history, articleContext);
 }
@@ -234,7 +242,7 @@ Rules:
 - Be specific: include percentages, drug names, patient populations when available
 - tags: pick 1-4 from the available list only`;
 
-  const raw = await generateText(prompt);
+  const raw = await generateText(prompt, undefined);
   const cleaned = raw.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
 
   try {

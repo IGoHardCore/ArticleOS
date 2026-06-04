@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getArticleById, rateArticle, getUserRating } from '@/lib/recommendations';
-import { getDb } from '@/lib/db';
+import { auth } from '@clerk/nextjs/server';
+import { getArticleById, rateArticle, getUserRating, isBookmarked, setBookmark } from '@/lib/recommendations';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { userId } = await auth();
   const { id } = await params;
   const numId = parseInt(id);
   if (isNaN(numId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
@@ -13,23 +14,26 @@ export async function GET(
   const article = getArticleById(numId);
   if (!article) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const userRating = getUserRating(numId);
-  return NextResponse.json({ article: { ...article, user_rating: userRating } });
+  const userRating = getUserRating(numId, userId ?? undefined);
+  const bookmarked = userId ? isBookmarked(numId, userId) : false;
+  return NextResponse.json({ article: { ...article, user_rating: userRating, bookmarked: bookmarked ? 1 : 0 } });
 }
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = await params;
   const numId = parseInt(id);
   if (isNaN(numId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const body = await req.json();
-  const db = getDb();
 
   if (typeof body.bookmarked === 'boolean') {
-    db.prepare('UPDATE articles SET bookmarked = ? WHERE id = ?').run(body.bookmarked ? 1 : 0, numId);
+    setBookmark(numId, userId, body.bookmarked);
     return NextResponse.json({ success: true });
   }
 
@@ -38,11 +42,8 @@ export async function POST(
     return NextResponse.json({ error: 'Rating must be 1-5' }, { status: 400 });
   }
 
-  rateArticle(numId, rating);
-  // Auto-bookmark Must Read (5-star) articles
-  if (rating === 5) {
-    db.prepare('UPDATE articles SET bookmarked = 1 WHERE id = ?').run(numId);
-  }
+  rateArticle(numId, rating, userId);
+  if (rating === 5) setBookmark(numId, userId, true);
 
   return NextResponse.json({ success: true, article: getArticleById(numId) });
 }

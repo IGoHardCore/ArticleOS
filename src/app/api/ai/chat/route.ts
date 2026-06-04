@@ -1,18 +1,20 @@
 import { NextRequest } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { generateChatStream } from '@/lib/ai';
 import { getDb } from '@/lib/db';
 
-function buildArticleContext(): string {
+function buildArticleContext(userId: string): string {
   try {
     const db = getDb();
     const articles = db.prepare(`
       SELECT DISTINCT a.title, a.source, a.summary, r.rating
       FROM articles a
-      LEFT JOIN ratings r ON r.article_id = a.id
-      WHERE a.bookmarked = 1 OR r.rating >= 3
+      LEFT JOIN ratings r ON r.article_id = a.id AND r.clerk_user_id = ?
+      LEFT JOIN bookmarks b ON b.article_id = a.id AND b.clerk_user_id = ?
+      WHERE b.clerk_user_id IS NOT NULL OR r.rating >= 3
       ORDER BY r.rating DESC, a.published_at DESC
       LIMIT 20
-    `).all() as Array<{ title: string; source: string | null; summary: string | null; rating: number | null }>;
+    `).all(userId, userId) as Array<{ title: string; source: string | null; summary: string | null; rating: number | null }>;
 
     if (!articles.length) return '';
     return articles.map(a => {
@@ -26,12 +28,15 @@ function buildArticleContext(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+
   const { message, history = [] } = await req.json();
   if (!message?.trim()) return new Response('Empty message', { status: 400 });
 
   try {
-    const articleContext = buildArticleContext();
-    const stream = await generateChatStream(message, history, articleContext);
+    const articleContext = buildArticleContext(userId);
+    const stream = await generateChatStream(message, history, articleContext, userId);
 
     const readable = new ReadableStream({
       async start(controller) {

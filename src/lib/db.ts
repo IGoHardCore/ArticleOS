@@ -70,14 +70,32 @@ function initSchema(db: Database.Database) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      clerk_user_id TEXT NOT NULL,
+      article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (clerk_user_id, article_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+      clerk_user_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      PRIMARY KEY (clerk_user_id, key)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ratings_article ON ratings(article_id);
     CREATE INDEX IF NOT EXISTS idx_article_tags_article ON article_tags(article_id);
     CREATE INDEX IF NOT EXISTS idx_article_tags_tag ON article_tags(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(clerk_user_id);
+    CREATE INDEX IF NOT EXISTS idx_ratings_user ON ratings(clerk_user_id);
   `);
 
-  // Migrate: add bookmarked column to existing DBs
+  // Migrations for existing DBs
   try { db.exec('ALTER TABLE articles ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE ratings ADD COLUMN clerk_user_id TEXT'); } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE research_notes ADD COLUMN clerk_user_id TEXT'); } catch { /* already exists */ }
 
   const tagColors: Record<string, string> = {
     cancer: '#ef4444',

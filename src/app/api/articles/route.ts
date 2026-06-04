@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { getRecommendedArticles, getLatestArticles, searchArticles, getTopPick } from '@/lib/recommendations';
 import { getDb } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
+  const { userId } = await auth();
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get('mode') || 'recommended';
   const query = searchParams.get('q') || '';
@@ -17,12 +19,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (mode === 'latest') {
-      return NextResponse.json({ articles: getLatestArticles(limit, offset) });
+      return NextResponse.json({ articles: getLatestArticles(limit, offset, userId ?? undefined) });
     }
 
     if (mode === 'top-pick') {
       const period = (searchParams.get('period') || 'week') as 'week' | 'month';
-      return NextResponse.json({ article: getTopPick(period) });
+      return NextResponse.json({ article: getTopPick(period, userId ?? undefined) });
     }
 
     if (mode === 'by-tag') {
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ articles: articles.map(a => ({ ...a, tags: tagMap.get(a.id) || [] })) });
     }
 
-    return NextResponse.json({ articles: getRecommendedArticles(limit, offset) });
+    return NextResponse.json({ articles: getRecommendedArticles(limit, offset, userId ?? undefined) });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to fetch articles' },

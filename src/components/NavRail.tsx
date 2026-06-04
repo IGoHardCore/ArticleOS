@@ -7,6 +7,7 @@ import {
   Home, FileText, BarChart2, Settings, LayoutList, LayoutGrid,
   ChevronRight, ChevronLeft, Sparkles, Bookmark
 } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
 import { SidebarBrand } from './SidebarBrand';
 
@@ -124,6 +125,24 @@ export function NavRail({ onViewChange, view, expanded = true, onToggle, aiOpen 
         <div className="my-2 border-t border-slate-100" />
 
         <NavItem icon={Sparkles} label="AI Guidance" active={false} expanded={expanded} onClick={handleAIGuidance} />
+      </div>
+
+      {/* User account */}
+      <div className="px-3 pb-2 flex items-center gap-2">
+        <UserButton afterSignOutUrl="/sign-in" />
+        <AnimatePresence>
+          {expanded && (
+            <motion.span
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              transition={{ duration: 0.12 }}
+              className="text-xs text-slate-500 truncate"
+            >
+              Account
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Blue circle toggle — sits on the right edge of the sidebar */}
