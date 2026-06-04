@@ -268,23 +268,23 @@ export function ArticleDrawer({ article, onClose }: ArticleDrawerProps) {
 
                 {/* Full Article tab */}
                 {activeTab === 'article' && (
-                  article.full_text ? (
-                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{article.full_text}</p>
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-slate-500 mb-4">Full article text not available in this preview.</p>
-                      {article.url && (
-                        <a
-                          href={article.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors"
-                        >
-                          Read Full Article →
-                        </a>
-                      )}
-                    </div>
-                  )
+                  <div>
+                    {article.url && (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition-colors mb-5"
+                      >
+                        Read Full Article →
+                      </a>
+                    )}
+                    {article.full_text ? (
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{article.full_text}</p>
+                    ) : (
+                      <p className="text-sm text-slate-500">Full article text not available in this preview.</p>
+                    )}
+                  </div>
                 )}
               </div>
 
