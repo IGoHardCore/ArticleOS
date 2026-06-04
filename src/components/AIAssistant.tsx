@@ -268,7 +268,7 @@ export function AIAssistant({ open: controlledOpen, onOpenChange }: AIAssistantP
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         onClick={() => setOpen(!open)}
-        className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-200/60 text-sm font-semibold transition-colors md:flex hidden"
+        className={`fixed top-4 right-4 z-50 items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-200/60 text-sm font-semibold transition-colors ${open ? 'hidden' : 'md:flex hidden'}`}
       >
         <Sparkles size={14} />
         AI
