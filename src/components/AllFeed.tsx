@@ -73,7 +73,7 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sortMode, setSortMode] = useState<'recommended' | 'latest'>(mode ?? 'recommended');
-  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+  const [layout, setLayout] = useState<'list' | 'grid'>('grid');
 
   const fetchArticles = useCallback(async (reset = false) => {
     const currentOffset = reset ? 0 : offset;
@@ -202,9 +202,18 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
                   <span className="text-xs text-slate-400 flex-shrink-0">{timeAgo(article.published_at)}</span>
                 </div>
 
-                <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-3 group-hover:text-blue-700 transition-colors mb-2">
+                <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors mb-2">
                   {article.title}
                 </h3>
+
+                {(() => {
+                  const desc = article.summary
+                    ? article.summary.split('\n\n')[0]
+                    : article.full_text?.slice(0, 200) || null;
+                  return desc ? (
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-3 mb-2">{desc}</p>
+                  ) : null;
+                })()}
 
                 {article.tags && article.tags.length > 0 && (
                   <div className="flex items-center gap-1 flex-wrap mb-2">
@@ -271,21 +280,19 @@ export function AllFeed({ onArticleClick, mode = 'recommended', onFetch, fetchin
                 )}
               </div>
 
-              {/* Title always full width on mobile, split on sm+ */}
-              <div className="flex gap-4 mb-3">
-                <div className="w-full sm:w-[55%] sm:flex-shrink-0">
-                  <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
-                    {article.title}
-                  </h3>
-                </div>
-                {/* Summary — hidden on mobile, shown on sm+ */}
-                {article.summary && (
-                  <div className="hidden sm:block flex-1 min-w-0">
-                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
-                      {article.summary.split('\n\n')[0]}
-                    </p>
-                  </div>
-                )}
+              {/* Title + description */}
+              <div className="mb-3">
+                <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors mb-1.5">
+                  {article.title}
+                </h3>
+                {(() => {
+                  const desc = article.summary
+                    ? article.summary.split('\n\n')[0]
+                    : article.full_text?.slice(0, 200) || null;
+                  return desc ? (
+                    <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{desc}</p>
+                  ) : null;
+                })()}
               </div>
 
               <div className="border-t border-slate-100 pt-2 sm:pt-3" onClick={e => e.stopPropagation()}>

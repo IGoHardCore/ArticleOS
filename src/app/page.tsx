@@ -6,11 +6,11 @@ import { ChevronLeft, ChevronRight, TrendingUp, Clock, Search, X, RefreshCw } fr
 import { Article } from '@/lib/db';
 import { AppShell } from '@/components/AppShell';
 import { FlashCard } from '@/components/FlashCard';
+import { ArticleDrawer } from '@/components/ArticleDrawer';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { AllFeed } from '@/components/AllFeed';
 import { TopPick } from '@/components/TopPick';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
 
 type FeedMode = 'recommended' | 'latest';
 type View = 'cards' | 'feed';
@@ -22,8 +22,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<FeedMode>('recommended');
   const [view, setView] = useState<View>('cards');
-  const router = useRouter();
-  function openArticle(article: Article) { router.push(`/article/${article.id}`); }
+  const [drawerArticle, setDrawerArticle] = useState<Article | null>(null);
 
   // Consume view saved by NavRail when navigating from another page
   useEffect(() => {
@@ -84,7 +83,7 @@ export default function HomePage() {
 
   // Keyboard nav for cards view
   useEffect(() => {
-    if (view !== 'cards') return;
+    if (view !== 'cards' || drawerArticle) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'j') goNext();
       if (e.key === 'ArrowLeft' || e.key === 'k') goPrev();
@@ -92,7 +91,7 @@ export default function HomePage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, index, articles.length]);
+  }, [view, drawerArticle, index, articles.length]);
 
   function goNext() {
     if (index < articles.length - 1) { setDirection(1); setIndex(i => i + 1); }
@@ -201,7 +200,7 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
-                <TopPick period={topPickPeriod} onArticleClick={openArticle} />
+                <TopPick period={topPickPeriod} onArticleClick={setDrawerArticle} />
               </div>
             )}
 
@@ -243,7 +242,7 @@ export default function HomePage() {
                           key={current.id}
                           article={current}
                           direction={direction}
-                          onExpand={() => openArticle(current)}
+                          onExpand={() => setDrawerArticle(current)}
                         />
                       )}
                     </AnimatePresence>
@@ -311,9 +310,10 @@ export default function HomePage() {
         {/* ─── Feed View ─── */}
         {view === 'feed' && (
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-            <AllFeed onArticleClick={openArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
+            <AllFeed onArticleClick={setDrawerArticle} mode={mode} onFetch={refreshFeed} fetching={refreshing} />
           </div>
         )}
+      <ArticleDrawer article={drawerArticle} onClose={() => setDrawerArticle(null)} />
       <OnboardingModal />
       </>
     </AppShell>
